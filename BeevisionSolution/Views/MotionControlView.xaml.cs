@@ -348,25 +348,41 @@ namespace BeevisionSolution.Views
 
             // 1. Kiểm tra xem có Card PCIe IO rời hay không
             var pcieIo = IoJobCtrl.GetIOcardCtrl();
-            if (pcieIo != null && pcieIo.IsInit)
+            bool hasPcie = pcieIo != null && pcieIo.IsInit;
+
+            if (txtIoCardStatus != null)
             {
-                // Cập nhật trạng thái DI từ Card PCIe
+                if (hasPcie)
+                {
+                    txtIoCardStatus.Text = $"PCIe Ready ({pcieIo.Name}, In={pcieIo.InputChannels}, Out={pcieIo.OutputChannels})";
+                    txtIoCardStatus.Foreground = TileGreenBrush;
+                }
+                else
+                {
+                    txtIoCardStatus.Text = "PCIe Not Initialized (Fallback: Inovance EtherCAT IO)";
+                    txtIoCardStatus.Foreground = TileOrangeBrush;
+                }
+            }
+
+            if (hasPcie)
+            {
+                // Cập nhật trạng thái DI từ Card PCIe theo 0-based channel
                 for (int i = 0; i < DiItems.Count; i++)
                 {
-                    int pin = DiItems[i].Pin;
-                    if (pin >= 1 && pin <= pcieIo.InputChannels)
+                    int ch = DiItems[i].Pin;
+                    if (ch >= 0 && ch < pcieIo.InputChannels)
                     {
-                        DiItems[i].State = pcieIo.GetInputState(pin);
+                        DiItems[i].State = pcieIo.GetChannelInput(ch);
                     }
                 }
 
-                // Cập nhật trạng thái DO từ Card PCIe
+                // Cập nhật trạng thái DO từ Card PCIe theo 0-based channel
                 for (int i = 0; i < DoItems.Count; i++)
                 {
-                    int pin = DoItems[i].Pin;
-                    if (pin >= 1 && pin <= pcieIo.OutputChannels)
+                    int ch = DoItems[i].Pin;
+                    if (ch >= 0 && ch < pcieIo.OutputChannels)
                     {
-                        DoItems[i].State = pcieIo.GetOutputState(pin);
+                        DoItems[i].State = pcieIo.GetChannelOutput(ch);
                     }
                 }
             }
@@ -1067,53 +1083,47 @@ namespace BeevisionSolution.Views
         {
             if (DiItems.Count > 0) return;
 
-            var cfg = MotionSequenceManager.Instance.Motion?.Config?.IO;
-
-            // Khởi tạo 16 cổng DI (Digital Inputs)
-            string[] diNames = new string[16]
+            // Khởi tạo 12 cổng Digital Inputs (DI 00..11) theo cấu hình máy Nitto Press
+            string[] diNames = new string[12]
             {
-                "Cylinder Forward Sensor ",
-                "Cylinder Backward Sensor ",
-                "Vacuum Pressure Sensor ",
-                "System Stop / Safety Sensor ",
-                "General Digital Input 04",
-                "General Digital Input 05",
-                "General Digital Input 06",
-                "General Digital Input 07",
-                "General Digital Input 08",
-                "General Digital Input 09",
-                "General Digital Input 10",
-                "General Digital Input 11",
-                "General Digital Input 12",
-                "General Digital Input 13",
-                "General Digital Input 14",
-                "General Digital Input 15"
+                "Left Trigger Button (IDEC Dual-Btn)",
+                "Right Trigger Button (IDEC Dual-Btn)",
+                "Target Force Reached (Bongshin Loadcell)",
+                "Home / Upper Standby Sensor (Misumi MSX)",
+                "Down Limit Safety Sensor (Misumi MSX)",
+                "Part on Jig Sensor (Misumi MSX)",
+                "Emergency Stop / Safety Sensor",
+                "General Digital Input 07 (Spare)",
+                "General Digital Input 08 (Spare)",
+                "General Digital Input 09 (Spare)",
+                "General Digital Input 10 (Spare)",
+                "General Digital Input 11 (Spare)"
             };
 
-            for (short i = 0; i < 16; i++)
+            for (short i = 0; i < 12; i++)
             {
                 DiItems.Add(new IoPinDisplayItem { Pin = i, Name = diNames[i], IsOutput = false });
             }
 
-           
+            // Khởi tạo 16 cổng Digital Outputs (DO 00..15) theo cấu hình máy Nitto Press
             string[] doNames = new string[16]
             {
-                "Cylinder Solenoid ",
-                "Vacuum Solenoid ",
-                "General Digital Output 02",
-                "General Digital Output 03",
-                "General Digital Output 04",
-                "General Digital Output 05",
-                "General Digital Output 06",
-                "General Digital Output 07",
-                "General Digital Output 08",
-                "General Digital Output 09",
-                "General Digital Output 10",
-                "General Digital Output 11",
-                "General Digital Output 12",
-                "General Digital Output 13",
-                "General Digital Output 14",
-                "General Digital Output 15"
+                "Tower Light Green (OK/RUN - Qlight)",
+                "Tower Light Red (NG/ALARM - Qlight)",
+                "Tower Buzzer (Alarm Sound)",
+                "Camera Hardware Trigger",
+                "Inspection Backlight (Vision 65MP)",
+                "General Digital Output 05 (Spare)",
+                "General Digital Output 06 (Spare)",
+                "General Digital Output 07 (Spare)",
+                "General Digital Output 08 (Spare)",
+                "General Digital Output 09 (Spare)",
+                "General Digital Output 10 (Spare)",
+                "General Digital Output 11 (Spare)",
+                "General Digital Output 12 (Spare)",
+                "General Digital Output 13 (Spare)",
+                "General Digital Output 14 (Spare)",
+                "Motor Mechanical Brake (Release/Lock)"
             };
 
             for (short i = 0; i < 16; i++)
@@ -1126,13 +1136,13 @@ namespace BeevisionSolution.Views
         {
             if (sender is Button btn && btn.DataContext is IoPinDisplayItem item)
             {
+                bool newState = !item.State;
                 var pcieIo = IoJobCtrl.GetIOcardCtrl();
                 if (pcieIo != null && pcieIo.IsInit)
                 {
-                    bool newState = !item.State;
-                    if (item.Pin >= 1 && item.Pin <= pcieIo.OutputChannels)
+                    if (item.Pin >= 0 && item.Pin < pcieIo.OutputChannels)
                     {
-                        pcieIo.SetPinOutput(item.Pin, newState);
+                        pcieIo.SetChannelOutput(item.Pin, newState);
                         item.State = newState;
                     }
                     return;
@@ -1142,11 +1152,38 @@ namespace BeevisionSolution.Views
                 var motion = MotionSequenceManager.Instance.Motion;
                 if (motion != null)
                 {
-                    bool newState = !item.State;
                     motion.SetDigitalOutput(item.Pin, newState);
                     item.State = newState;
                 }
             }
+        }
+
+        private void BtnResetAllOutputs_Click(object sender, RoutedEventArgs e)
+        {
+            var pcieIo = IoJobCtrl.GetIOcardCtrl();
+            if (pcieIo != null && pcieIo.IsInit)
+            {
+                for (int ch = 0; ch < pcieIo.OutputChannels; ch++)
+                {
+                    pcieIo.SetChannelOutput(ch, false);
+                }
+            }
+
+            var motion = MotionSequenceManager.Instance.Motion;
+            if (motion != null)
+            {
+                for (short i = 0; i < 16; i++)
+                {
+                    motion.SetDigitalOutput(i, false);
+                }
+            }
+
+            foreach (var item in DoItems)
+            {
+                item.State = false;
+            }
+
+            Motion_OnLogMessage("[Manual] Reset all Digital Outputs to LOW (0).");
         }
 
         #endregion
@@ -1172,6 +1209,17 @@ namespace BeevisionSolution.Views
 
     public class IoPinDisplayItem : System.ComponentModel.INotifyPropertyChanged
     {
+        private static readonly SolidColorBrush DiActiveBgBrush = new SolidColorBrush(Color.FromRgb(0x16, 0x3E, 0x2B));
+        private static readonly SolidColorBrush DiActiveBorderBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xE6, 0x76));
+        private static readonly SolidColorBrush DoActiveBgBrush = new SolidColorBrush(Color.FromRgb(0x3D, 0x27, 0x12));
+        private static readonly SolidColorBrush DoActiveBorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x98, 0x00));
+        private static readonly SolidColorBrush ItemOffBgBrush = new SolidColorBrush(Color.FromRgb(0x25, 0x25, 0x26));
+        private static readonly SolidColorBrush ItemOffBorderBrush = new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
+
+        private static readonly SolidColorBrush DiLedOnBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xE6, 0x76));
+        private static readonly SolidColorBrush DoLedOnBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x98, 0x00));
+        private static readonly SolidColorBrush LedOffBrush = new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
+
         public short Pin { get; set; }
         public string PinLabel => (IsOutput ? "DO " : "DI ") + Pin.ToString("D2");
         public string Name { get; set; }
@@ -1189,13 +1237,23 @@ namespace BeevisionSolution.Views
                     OnPropertyChanged(nameof(State));
                     OnPropertyChanged(nameof(StateBrush));
                     OnPropertyChanged(nameof(StateText));
+                    OnPropertyChanged(nameof(CardBgBrush));
+                    OnPropertyChanged(nameof(CardBorderBrush));
                 }
             }
         }
 
         public Brush StateBrush => State
-            ? (IsOutput ? new SolidColorBrush(Color.FromRgb(0xFF, 0x98, 0x00)) : new SolidColorBrush(Color.FromRgb(0x10, 0x7C, 0x41)))
-            : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
+            ? (IsOutput ? DoLedOnBrush : DiLedOnBrush)
+            : LedOffBrush;
+
+        public Brush CardBgBrush => State
+            ? (IsOutput ? DoActiveBgBrush : DiActiveBgBrush)
+            : ItemOffBgBrush;
+
+        public Brush CardBorderBrush => State
+            ? (IsOutput ? DoActiveBorderBrush : DiActiveBorderBrush)
+            : ItemOffBorderBrush;
 
         public string StateText => State ? "HIGH (1)" : "LOW (0)";
 

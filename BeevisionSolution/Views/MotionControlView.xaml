@@ -76,6 +76,43 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
 
+        <!-- Dark Theme RadioButton Style -->
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#E1E1E1"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,14,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <StackPanel Orientation="Horizontal" Background="Transparent" VerticalAlignment="Center">
+                            <Grid Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse x:Name="RadioBorder" Stroke="#3F3F46" StrokeThickness="1.5" Fill="#252526"/>
+                                <Ellipse x:Name="RadioDot" Width="8" Height="8" Fill="#007ACC" Visibility="Collapsed"/>
+                            </Grid>
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="RadioDot" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="RadioBorder" Property="Stroke" Value="#007ACC"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RadioBorder" Property="Stroke" Value="#00BFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#666666"/>
+                                <Setter TargetName="RadioBorder" Property="Stroke" Value="#333333"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Motion Navigation Tab Item Style -->
         <Style x:Key="MotionNavTabItemStyle" TargetType="TabItem">
             <Setter Property="Foreground" Value="#CCCCCC"/>
@@ -192,75 +229,96 @@
             <!-- ================= TAB: I/O MONITOR (Digital Inputs & Outputs Real-time) ================= -->
             <TabItem Header="I/O MONITOR" Style="{StaticResource MotionNavTabItemStyle}">
                 <Grid Margin="6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <!-- Left: Digital Inputs DI -->
-                        <ColumnDefinition Width="*"/>
-                        <!-- Right: Digital Outputs DO -->
-                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                    <!-- Cột 1: DIGITAL INPUTS (DI 0..15) -->
-                    <GroupBox Grid.Column="0" Header="DIGITAL INPUTS (SENSOR &amp; SAFETY)" Margin="0,0,4,0">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ItemsControl x:Name="icDigitalInputs" Margin="4">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,0,0,4">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="65"/>
-                                                    <!-- Pin: DI 00 -->
-                                                    <ColumnDefinition Width="35"/>
-                                                    <!-- LED tròn -->
-                                                    <ColumnDefinition Width="*"/>
-                                                    <!-- Tên tín hiệu -->
-                                                    <ColumnDefinition Width="80"/>
-                                                    <!-- Trạng thái text -->
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding PinLabel}" FontWeight="Bold" FontSize="14" Foreground="#007ACC" VerticalAlignment="Center"/>
-                                                <Border Grid.Column="1" Width="18" Height="18" CornerRadius="9" Background="{Binding StateBrush}" BorderBrush="#555555" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="13" Foreground="#DCDCDC" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Grid.Column="3" Text="{Binding StateText}" FontWeight="Bold" FontSize="13" Foreground="{Binding StateBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </GroupBox>
+                    <!-- Header Bar: Hardware Status & Quick Reset -->
+                    <Border Grid.Row="0" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="8,5" Margin="0,0,0,6">
+                        <DockPanel LastChildFill="True">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button x:Name="btnResetAllOutputs" Content="RESET ALL DO" Background="#8B0000" Padding="14,4" Height="30" FontSize="12" FontWeight="Bold" Click="BtnResetAllOutputs_Click"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <iconPacks:PackIconMaterial Kind="ExpansionCard" Width="18" Height="18" Foreground="#007ACC" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="I/O HARDWARE: " Foreground="#888888" FontSize="12" FontWeight="Bold" Margin="0,0,4,0"/>
+                                <TextBlock x:Name="txtIoCardStatus" Text="Detecting I/O Hardware..." Foreground="#00FF7F" FontSize="12" FontWeight="Bold"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
 
-                    <!-- Cột 2: DIGITAL OUTPUTS (DO 0..15) -->
-                    <GroupBox Grid.Column="1" Header="DIGITAL OUTPUTS (VALVES &amp; ACTUATORS)" Margin="4,0,0,0">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ItemsControl x:Name="icDigitalOutputs" Margin="4">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="10,4" Margin="0,0,0,4">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="65"/>
-                                                    <!-- Pin: DO 00 -->
-                                                    <ColumnDefinition Width="35"/>
-                                                    <!-- LED tròn -->
-                                                    <ColumnDefinition Width="*"/>
-                                                    <!-- Tên tín hiệu -->
-                                                    <ColumnDefinition Width="70"/>
-                                                    <!-- Trạng thái text -->
-                                                    <ColumnDefinition Width="85"/>
-                                                    <!-- Nút Toggle thủ công -->
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding PinLabel}" FontWeight="Bold" FontSize="14" Foreground="#FF9800" VerticalAlignment="Center"/>
-                                                <Border Grid.Column="1" Width="18" Height="18" CornerRadius="9" Background="{Binding StateBrush}" BorderBrush="#555555" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="13" Foreground="#DCDCDC" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Grid.Column="3" Text="{Binding StateText}" FontWeight="Bold" FontSize="13" Foreground="{Binding StateBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                <Button Grid.Column="4" Content="TOGGLE"  Height="28" FontSize="12" Click="BtnToggleDO_Click"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </GroupBox>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <!-- Left: Digital Inputs DI -->
+                            <ColumnDefinition Width="*"/>
+                            <!-- Right: Digital Outputs DO -->
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Cột 1: DIGITAL INPUTS (DI 00..11) -->
+                        <GroupBox Grid.Column="0" Header="DIGITAL INPUTS (12 CHANNELS - SENSORS &amp; SAFETY)" Margin="0,0,4,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="icDigitalInputs" Margin="4">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding CardBgBrush}" BorderBrush="{Binding CardBorderBrush}" BorderThickness="1.5" CornerRadius="4" Padding="10,6" Margin="0,0,0,4">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="65"/>
+                                                        <!-- Pin: DI 00 -->
+                                                        <ColumnDefinition Width="35"/>
+                                                        <!-- LED tròn -->
+                                                        <ColumnDefinition Width="*"/>
+                                                        <!-- Tên tín hiệu -->
+                                                        <ColumnDefinition Width="80"/>
+                                                        <!-- Trạng thái text -->
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding PinLabel}" FontWeight="Bold" FontSize="14" Foreground="#007ACC" VerticalAlignment="Center"/>
+                                                    <Border Grid.Column="1" Width="18" Height="18" CornerRadius="9" Background="{Binding StateBrush}" BorderBrush="#555555" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding StateText}" FontWeight="Bold" FontSize="13" Foreground="{Binding StateBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </GroupBox>
+
+                        <!-- Cột 2: DIGITAL OUTPUTS (DO 00..15) -->
+                        <GroupBox Grid.Column="1" Header="DIGITAL OUTPUTS (16 CHANNELS - ACTUATORS &amp; SIGNALS)" Margin="4,0,0,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="icDigitalOutputs" Margin="4">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding CardBgBrush}" BorderBrush="{Binding CardBorderBrush}" BorderThickness="1.5" CornerRadius="4" Padding="10,4" Margin="0,0,0,4">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="65"/>
+                                                        <!-- Pin: DO 00 -->
+                                                        <ColumnDefinition Width="35"/>
+                                                        <!-- LED tròn -->
+                                                        <ColumnDefinition Width="*"/>
+                                                        <!-- Tên tín hiệu -->
+                                                        <ColumnDefinition Width="70"/>
+                                                        <!-- Trạng thái text -->
+                                                        <ColumnDefinition Width="85"/>
+                                                        <!-- Nút Toggle thủ công -->
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding PinLabel}" FontWeight="Bold" FontSize="14" Foreground="#FF9800" VerticalAlignment="Center"/>
+                                                    <Border Grid.Column="1" Width="18" Height="18" CornerRadius="9" Background="{Binding StateBrush}" BorderBrush="#555555" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding StateText}" FontWeight="Bold" FontSize="13" Foreground="{Binding StateBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="4" Content="TOGGLE"  Height="28" FontSize="12" Click="BtnToggleDO_Click"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </GroupBox>
+                    </Grid>
                 </Grid>
             </TabItem>
 
@@ -319,87 +377,109 @@
                     <!-- Right: Manual JOG, PTP, Pneumatics & Light Control -->
                     <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="3">
-                            <!-- 1. Manual JOG & PTP -->
-                            <GroupBox Header="{DynamicResource strMotionManualMotion}">
+                            <!-- 1. Manual JOG & PTP Control -->
+                            <GroupBox Header="{DynamicResource strMotionManualMotion}" Margin="0,0,0,4">
                                 <StackPanel Margin="3">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Orientation="Horizontal" Grid.Column="0">
-                                            <RadioButton x:Name="rbJogContinuous" Content="{DynamicResource strMotionJogContinuous}" IsChecked="True" Checked="RbJogMode_Changed"/>
-                                            <RadioButton x:Name="rbJogStep" Content="{DynamicResource strMotionJogStep}" Checked="RbJogMode_Changed"/>
-                                        </StackPanel>
-                                        <ComboBox x:Name="cboStepDistance" Grid.Column="1" Width="75" HorizontalAlignment="Right" Visibility="Collapsed" SelectedIndex="1">
-                                            <ComboBoxItem Content="0.1 mm"/>
-                                            <ComboBoxItem Content="1.0 mm"/>
-                                            <ComboBoxItem Content="5.0 mm"/>
-                                            <ComboBoxItem Content="10.0 mm"/>
-                                        </ComboBox>
-                                    </Grid>
+                                    <!-- JOG Mode Selector & Step Combobox -->
+                                    <Border Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,5">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                                                <RadioButton x:Name="rbJogContinuous" Content="{DynamicResource strMotionJogContinuous}" IsChecked="True" Checked="RbJogMode_Changed"/>
+                                                <RadioButton x:Name="rbJogStep" Content="{DynamicResource strMotionJogStep}" Checked="RbJogMode_Changed"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="cboStepDistance" Grid.Column="1" Width="85" Height="28" Visibility="Collapsed" SelectedIndex="1">
+                                                <ComboBoxItem Content="0.1 mm"/>
+                                                <ComboBoxItem Content="1.0 mm"/>
+                                                <ComboBoxItem Content="5.0 mm"/>
+                                                <ComboBoxItem Content="10.0 mm"/>
+                                            </ComboBox>
+                                        </Grid>
+                                    </Border>
 
-                                    <Grid Margin="0,4,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button x:Name="btnJogNeg" Grid.Column="0" Content="◀ JOG -" Height="34" FontSize="13" PreviewMouseDown="BtnJogNeg_PreviewMouseDown" PreviewMouseUp="BtnJogNeg_PreviewMouseUp"/>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="4,0">
-                                            <TextBlock Text="Speed:"/>
-                                            <TextBox x:Name="txtJogSpeed" Text="50" Width="40" TextAlignment="Center"/>
-                                        </StackPanel>
-                                        <Button x:Name="btnJogPos" Grid.Column="2" Content="JOG + ▶" Height="34" FontSize="13" PreviewMouseDown="BtnJogPos_PreviewMouseDown" PreviewMouseUp="BtnJogPos_PreviewMouseUp"/>
-                                    </Grid>
+                                    <!-- JOG Buttons & Speed -->
+                                    <Border Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,5">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button x:Name="btnJogNeg" Grid.Column="0" Content="◀ JOG -" Height="36" Background="#2D2D30" FontSize="13" FontWeight="Bold" PreviewMouseDown="BtnJogNeg_PreviewMouseDown" PreviewMouseUp="BtnJogNeg_PreviewMouseUp"/>
+                                            
+                                            <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center" Margin="8,0">
+                                                <TextBlock Text="Speed (mm/s)" FontSize="10" Foreground="#888888" HorizontalAlignment="Center"/>
+                                                <TextBox x:Name="txtJogSpeed" Text="50" Width="60" Height="26" FontWeight="Bold" TextAlignment="Center" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            
+                                            <Button x:Name="btnJogPos" Grid.Column="2" Content="JOG + ▶" Height="36" Background="#2D2D30" FontSize="13" FontWeight="Bold" PreviewMouseDown="BtnJogPos_PreviewMouseDown" PreviewMouseUp="BtnJogPos_PreviewMouseUp"/>
+                                        </Grid>
+                                    </Border>
 
-                                    <Grid Margin="0,6,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Target:" Grid.Column="0"/>
-                                        <TextBox x:Name="txtTargetPos" Text="100.000" Grid.Column="1"/>
-                                        <Button x:Name="btnMoveAbs" Grid.Column="2" Content="{DynamicResource strMotionMoveAbs}" Click="BtnMoveAbs_Click"/>
-                                        <Button x:Name="btnMoveRel" Grid.Column="3" Content="{DynamicResource strMotionMoveRel}" Click="BtnMoveRel_Click"/>
-                                    </Grid>
+                                    <!-- PTP Point-to-Point Move (Absolute & Relative) -->
+                                    <Border Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,2">
+                                        <StackPanel>
+                                            <!-- Target Position Input -->
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{DynamicResource strMotionTargetPos}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox x:Name="txtTargetPos" Text="100.000" Grid.Column="1" Height="28" FontWeight="Bold" FontSize="13" Foreground="#00BFFF" TextAlignment="Center" VerticalAlignment="Center"/>
+                                                <TextBlock Text="mm" Grid.Column="2" Foreground="#888888" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                            </Grid>
+                                            
+                                            <!-- PTP Action Buttons -->
+                                            <UniformGrid Columns="2" Margin="0,2,0,0">
+                                                <Button x:Name="btnMoveAbs" Content="{DynamicResource strMotionMoveAbs}" Height="34" Background="#007ACC" FontWeight="Bold" FontSize="12" Margin="0,0,3,0" Click="BtnMoveAbs_Click"/>
+                                                <Button x:Name="btnMoveRel" Content="{DynamicResource strMotionMoveRel}" Height="34" Background="#2D2D30" FontWeight="Bold" FontSize="12" Margin="3,0,0,0" Click="BtnMoveRel_Click"/>
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </GroupBox>
 
                             <!-- 2. Manual Clamping Quick Controls -->
-                            <GroupBox Header="{DynamicResource strMotionManualClamping}">
-                                <UniformGrid Columns="2" Margin="3">
-                                    <Button x:Name="btnQuickClamp" Content="{DynamicResource strMotionClampDown}" Height="34" Click="BtnClampDown_Click"/>
-                                    <Button x:Name="btnQuickRetract" Content="{DynamicResource strMotionRetractUp}" Height="34" Click="BtnRetractUp_Click"/>
-                                </UniformGrid>
+                            <GroupBox Header="{DynamicResource strMotionManualClamping}" Margin="0,0,0,4">
+                                <Border Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="6" Margin="2">
+                                    <UniformGrid Columns="2">
+                                        <Button x:Name="btnQuickClamp" Content="{DynamicResource strMotionClampDown}" Height="36" Background="#007ACC" FontSize="12" FontWeight="Bold" Margin="0,0,3,0" Click="BtnClampDown_Click"/>
+                                        <Button x:Name="btnQuickRetract" Content="{DynamicResource strMotionRetractUp}" Height="36" Background="#2D2D30" FontSize="12" FontWeight="Bold" Margin="3,0,0,0" Click="BtnRetractUp_Click"/>
+                                    </UniformGrid>
+                                </Border>
                             </GroupBox>
 
                             <!-- 3. Test Program & Simulation Mode -->
-                            <GroupBox Header="Test Program &amp; Simulation">
-                                <StackPanel Margin="3">
-                                    <CheckBox x:Name="chkTestProgramMode" Content="Enable Mock Test Simulation" FontWeight="Bold" Foreground="#FFD700" Checked="ChkTestProgramMode_Changed" Unchecked="ChkTestProgramMode_Changed"/>
-                                    <Grid Margin="0,4,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Margin="0,0,2,0">
-                                            <TextBlock Text="Mock Vision Result:" FontSize="10"/>
-                                            <ComboBox x:Name="cbMockVisionResult" SelectedIndex="0" SelectionChanged="CbMockVisionResult_SelectionChanged">
-                                                <ComboBoxItem Content="OK (100 Pcs)"/>
-                                                <ComboBoxItem Content="NG1 (Count 99)"/>
-                                                <ComboBoxItem Content="NG2 (Reverse)"/>
-                                                <ComboBoxItem Content="NG3 (Defect)"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Margin="2,0,0,0">
-                                            <TextBlock Text="Simulate Trigger:" FontSize="10"/>
-                                            <Button x:Name="btnSimulateTrigger" Content="{DynamicResource strMotionSimulateTwoHand}" Height="26" Click="BtnSimulateTrigger_Click"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </StackPanel>
+                            <GroupBox Header="Test Program &amp; Simulation" Margin="0,0,0,4">
+                                <Border Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="2">
+                                    <StackPanel>
+                                        <CheckBox x:Name="chkTestProgramMode" Content="Enable Mock Test Simulation" FontWeight="Bold" FontSize="12" Foreground="#FFD700" Checked="ChkTestProgramMode_Changed" Unchecked="ChkTestProgramMode_Changed" Margin="0,0,0,8"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                <TextBlock Text="Mock Vision Result:" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
+                                                <ComboBox x:Name="cbMockVisionResult" Height="32" FontSize="12" FontWeight="Bold" SelectedIndex="0" SelectionChanged="CbMockVisionResult_SelectionChanged">
+                                                    <ComboBoxItem Content="OK (100 Pcs)"/>
+                                                    <ComboBoxItem Content="NG1 (Count 99)"/>
+                                                    <ComboBoxItem Content="NG2 (Reverse)"/>
+                                                    <ComboBoxItem Content="NG3 (Defect)"/>
+                                                </ComboBox>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                <TextBlock Text="Simulate Trigger:" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
+                                                <Button x:Name="btnSimulateTrigger" Content="{DynamicResource strMotionSimulateTwoHand}" Height="32" FontSize="12" FontWeight="Bold" Background="#2D2D30" Click="BtnSimulateTrigger_Click"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
                             </GroupBox>
                         </StackPanel>
                     </ScrollViewer>

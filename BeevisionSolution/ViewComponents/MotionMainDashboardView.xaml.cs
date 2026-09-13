@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using BeeMotionModule.Models;
 using BeevisionSolution.Controller;
@@ -26,6 +27,23 @@ namespace BeevisionSolution.ViewComponents
         private static readonly SolidColorBrush TileRedBrush = new SolidColorBrush(Color.FromRgb(0xDC, 0x14, 0x3C));
         private static readonly SolidColorBrush TileYellowBrush = new SolidColorBrush(Color.FromRgb(0xD4, 0xAF, 0x37));
         private static readonly SolidColorBrush TileDarkGrayBrush = new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
+
+        // Màu trạng thái hiển thị cho toàn bộ vùng Card Sensors & Tower Signals (Background, BorderBrush & LED indicator)
+        private static readonly SolidColorBrush CardGreenBgBrush = new SolidColorBrush(Color.FromRgb(0x16, 0x3E, 0x2B));
+        private static readonly SolidColorBrush CardGreenBorderBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xE6, 0x76));
+        private static readonly SolidColorBrush CardGreenLedBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xE6, 0x76));
+
+        private static readonly SolidColorBrush CardRedBgBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x15, 0x1B));
+        private static readonly SolidColorBrush CardRedBorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
+        private static readonly SolidColorBrush CardRedLedBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
+
+        private static readonly SolidColorBrush CardBlueBgBrush = new SolidColorBrush(Color.FromRgb(0x0D, 0x33, 0x56));
+        private static readonly SolidColorBrush CardBlueBorderBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xBF, 0xFF));
+        private static readonly SolidColorBrush CardBlueLedBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xBF, 0xFF));
+
+        private static readonly SolidColorBrush CardYellowBgBrush = new SolidColorBrush(Color.FromRgb(0x3D, 0x35, 0x12));
+        private static readonly SolidColorBrush CardYellowBorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+        private static readonly SolidColorBrush CardYellowLedBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
 
         public MotionMainDashboardView()
         {
@@ -69,6 +87,7 @@ namespace BeevisionSolution.ViewComponents
                 _ioPollingTimer.Tick += IoPollingTimer_Tick;
             }
             _ioPollingTimer.Start();
+            IoPollingTimer_Tick(null, EventArgs.Empty);
             Motion_OnLogMessage("[System] Motion Dashboard ready.");
         }
 
@@ -275,19 +294,38 @@ namespace BeevisionSolution.ViewComponents
                 txtForceStatus.Foreground = forceReached ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             }
 
-            // Misumi Optical Sensors
-            if (ledHomeUpSensor != null) ledHomeUpSensor.Fill = homeUp ? TileGreenBrush : TileDarkGrayBrush;
-            if (ledDownLimitSensor != null) ledDownLimitSensor.Fill = downLimit ? TileRedBrush : TileDarkGrayBrush;
-            if (ledPartPresentSensor != null) ledPartPresentSensor.Fill = partPresent ? TileBlueBrush : TileDarkGrayBrush;
+            // Misumi Optical Sensors & Tower Signals (Cập nhật cả vùng Border và LED indicator)
+            UpdateSignalCard(borderHomeUp, ledHomeUpSensor, homeUp, CardGreenBgBrush, CardGreenBorderBrush, CardGreenLedBrush);
+            UpdateSignalCard(borderDownLimit, ledDownLimitSensor, downLimit, CardRedBgBrush, CardRedBorderBrush, CardRedLedBrush);
+            UpdateSignalCard(borderPartPresent, ledPartPresentSensor, partPresent, CardBlueBgBrush, CardBlueBorderBrush, CardBlueLedBrush);
 
             // Tower Light & Backlight DO status
             bool greenDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.TowerLightGreenDOBit ?? 0));
             bool redDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.TowerLightRedDOBit ?? 1));
             bool bLightDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.BacklightDOBit ?? 4));
 
-            if (ledTowerGreen != null) ledTowerGreen.Fill = greenDO ? TileGreenBrush : TileDarkGrayBrush;
-            if (ledTowerRed != null) ledTowerRed.Fill = redDO ? TileRedBrush : TileDarkGrayBrush;
-            if (ledBacklight != null) ledBacklight.Fill = (_isLightOn || bLightDO) ? TileYellowBrush : TileDarkGrayBrush;
+            UpdateSignalCard(borderTowerGreen, ledTowerGreen, greenDO, CardGreenBgBrush, CardGreenBorderBrush, CardGreenLedBrush);
+            UpdateSignalCard(borderTowerRed, ledTowerRed, redDO, CardRedBgBrush, CardRedBorderBrush, CardRedLedBrush);
+            UpdateSignalCard(borderBacklight, ledBacklight, (_isLightOn || bLightDO), CardYellowBgBrush, CardYellowBorderBrush, CardYellowLedBrush);
+        }
+
+        /// <summary>
+        /// Cập nhật hiển thị cho toàn bộ vùng Card của tín hiệu Sensor / Tower Light.
+        /// Khi Active: Cả Background và Border sáng lên tương ứng với màu trạng thái.
+        /// Khi Inactive: Trở về màu nền tối và viền xám mặc định.
+        /// </summary>
+        private void UpdateSignalCard(Border border, Ellipse led, bool isActive, Brush activeBg, Brush activeBorder, Brush activeLed)
+        {
+            if (border != null)
+            {
+                border.Background = isActive ? activeBg : TileOffBrush;
+                border.BorderBrush = isActive ? activeBorder : TileDarkGrayBrush;
+            }
+
+            if (led != null)
+            {
+                led.Fill = isActive ? activeLed : TileDarkGrayBrush;
+            }
         }
 
         #endregion

@@ -285,7 +285,7 @@
                 <Grid Margin="2">
                     <UniformGrid Columns="2">
                         <!-- Misumi Home/Upper Standby Sensor -->
-                        <Border x:Name="borderHomeUp" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Margin="2" Padding="6,2">
+                        <Border x:Name="borderHomeUp" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledHomeUpSensor" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
@@ -296,7 +296,7 @@
                         </Border>
 
                         <!-- Misumi Down Limit Sensor -->
-                        <Border x:Name="borderDownLimit" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Margin="2" Padding="6,2">
+                        <Border x:Name="borderDownLimit" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledDownLimitSensor" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
@@ -307,7 +307,7 @@
                         </Border>
 
                         <!-- Misumi Part on Jig Sensor -->
-                        <Border x:Name="borderPartPresent" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Margin="2" Padding="6,2">
+                        <Border x:Name="borderPartPresent" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledPartPresentSensor" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
@@ -318,7 +318,7 @@
                         </Border>
 
                         <!-- Tower Light Green -->
-                        <Border x:Name="borderTowerGreen" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Margin="2" Padding="6,2">
+                        <Border x:Name="borderTowerGreen" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledTowerGreen" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
@@ -329,7 +329,7 @@
                         </Border>
 
                         <!-- Tower Light Red -->
-                        <Border x:Name="borderTowerRed" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Margin="2" Padding="6,2">
+                        <Border x:Name="borderTowerRed" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledTowerRed" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
@@ -340,7 +340,7 @@
                         </Border>
 
                         <!-- Backlight Output -->
-                        <Border x:Name="borderBacklight" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Margin="2" Padding="6,2">
+                        <Border x:Name="borderBacklight" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledBacklight" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
