@@ -103,17 +103,50 @@ namespace BeeMotionModule.Models
         public int DwellTimeMs { get; set; } = 200;
         public bool ForceVisionOk { get; set; } = false;
 
+
         // Legacy compatibility
         public double CapturePosition { get => ClampingPosition; set => ClampingPosition = value; }
         public double EndPosition { get => StandbyPosition; set => StandbyPosition = value; }
 
         public IOConfig IO { get; set; } = new IOConfig();
 
-        public List<TeachingPoint> TeachingPoints { get; set; } = new List<TeachingPoint>
+        public List<TeachingPoint> TeachingPoints { get; set; } = new List<TeachingPoint>();
+
+        public void EnsureDefaultTeachingPoints()
         {
-            new TeachingPoint { Id = 1, Name = "1. Standby / Retract", AxisIndex = 0, Position = 0.0, Speed = 80.0, StepType = "Standby", StepOrder = 1, TriggerVision = false },
-            new TeachingPoint { Id = 2, Name = "2. Clamping / Press", AxisIndex = 0, Position = 80.0, Speed = 50.0, StepType = "CheckVision", StepOrder = 2, TriggerVision = true, JobId = 0 }
-        };
+            if (TeachingPoints == null)
+            {
+                TeachingPoints = new List<TeachingPoint>();
+            }
+
+            if (TeachingPoints.Count == 0)
+            {
+                TeachingPoints.Add(new TeachingPoint
+                {
+                    Id = 1,
+                    Name = "1. Standby / Retract",
+                    AxisIndex = 0,
+                    Position = StandbyPosition,
+                    Speed = RetractVelocity > 0 ? RetractVelocity : 80.0,
+                    StepType = "Standby",
+                    StepOrder = 1,
+                    TriggerVision = false
+                });
+
+                TeachingPoints.Add(new TeachingPoint
+                {
+                    Id = 2,
+                    Name = "2. Clamping / Press",
+                    AxisIndex = 0,
+                    Position = ClampingPosition > 0 ? ClampingPosition : 80.0,
+                    Speed = ClampingVelocity > 0 ? ClampingVelocity : 50.0,
+                    StepType = "CheckVision",
+                    StepOrder = 2,
+                    TriggerVision = true,
+                    JobId = 0,
+                    DwellTimeMs = ForceDwellTimeMs > 0 ? ForceDwellTimeMs : 150
+                });
+            }
+        }
     }
 }
-

@@ -13,7 +13,7 @@ namespace BeeMotionModule
         bool IsConnected { get; }
         bool IsMasterOp { get; }
         uint MasterStatus { get; }
-        MotionConfig Config { get; }
+        MotionConfig Config { get; set; }
 
         event Action<short, AxisState> OnAxisStateUpdated;
         event Action<string> OnLogMessage;

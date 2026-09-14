@@ -175,9 +175,9 @@
                         </Grid.RowDefinitions>
                         <TextBlock Text="STEP 3" FontWeight="Bold" Foreground="#888888" FontSize="10"/>
                         <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,3">
-                            <iconPacks:PackIconMaterial Kind="CameraIris" Width="24" Height="24" Foreground="#FFD700" HorizontalAlignment="Center"/>
+                            <iconPacks:PackIconMaterial Kind="CameraIris" Width="24" Height="24" Foreground="#00BFFF" HorizontalAlignment="Center"/>
                             <TextBlock Text="Count &amp; Strobe" FontWeight="Bold" FontSize="12" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                            <TextBlock Text="VisionPro Inspection" Foreground="#FFD700" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="VisionPro Inspection" Foreground="#00BFFF" FontSize="10" HorizontalAlignment="Center"/>
                         </StackPanel>
                         <Border Background="#1E2A38" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="8" Padding="6,1" HorizontalAlignment="Center" Grid.Row="2">
                             <TextBlock x:Name="txtStep3Status" Text="WAIT" FontWeight="Bold" Foreground="#888888" FontSize="10"/>
@@ -195,9 +195,9 @@
                         </Grid.RowDefinitions>
                         <TextBlock Text="STEP 4" FontWeight="Bold" Foreground="#888888" FontSize="10"/>
                         <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,3">
-                            <iconPacks:PackIconMaterial Kind="ArrowExpandVertical" Width="24" Height="24" Foreground="#FF8C00" HorizontalAlignment="Center"/>
+                            <iconPacks:PackIconMaterial Kind="ArrowExpandVertical" Width="24" Height="24" Foreground="#00FF7F" HorizontalAlignment="Center"/>
                             <TextBlock Text="Unclamp / End" FontWeight="Bold" FontSize="12" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                            <TextBlock Text="Retract 0mm" Foreground="#FF8C00" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Retract 0mm" Foreground="#00FF7F" FontSize="10" HorizontalAlignment="Center"/>
                         </StackPanel>
                         <Border Background="#1E2A38" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="8" Padding="6,1" HorizontalAlignment="Center" Grid.Row="2">
                             <TextBlock x:Name="txtStep4Status" Text="WAIT" FontWeight="Bold" Foreground="#888888" FontSize="10"/>
@@ -381,7 +381,7 @@
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="4,1,0,1">
                         <TextBlock Text="Vel: " Foreground="#888888" FontSize="11"/>
-                        <TextBlock x:Name="txtActualVel" Text="0.0 mm/s" FontWeight="Bold" Foreground="#FFD700" FontSize="11"/>
+                        <TextBlock x:Name="txtActualVel" Text="0.0 mm/s" FontWeight="Bold" Foreground="#FFFFFF" FontSize="11"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,1">
                         <TextBlock Text="Mode: " Foreground="#888888" FontSize="11"/>

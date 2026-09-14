@@ -387,7 +387,7 @@ namespace BeevisionSolution.Controller
 
             // STEP 3: Clamp Down (Hạ cơ cấu tỳ kẹp phẳng tệp sản phẩm, kiểm soát lực qua Loadcell Bongshin hoặc vị trí Teaching Point)
             SetState(SequenceState.ClampingDown);
-            var teachPt = cfg?.TeachingPoints?.Find(p => p.TriggerVision || p.StepType == "CheckVision");
+            var teachPt = cfg?.TeachingPoints?.FirstOrDefault(p => p.TriggerVision || p.StepType == "CheckVision" || p.Id == 2);
             double clampPos = teachPt != null && teachPt.Position > 0 ? teachPt.Position : (cfg?.ClampingPosition ?? (cfg != null && cfg.CapturePosition > 0 ? cfg.CapturePosition : 80.0));
             double clampSpeed = teachPt != null && teachPt.Speed > 0 ? teachPt.Speed : (cfg?.ClampingVelocity ?? 50.0);
             int dwellTime = teachPt != null && teachPt.DwellTimeMs > 0 ? teachPt.DwellTimeMs : (cfg?.ForceDwellTimeMs > 0 ? cfg.ForceDwellTimeMs : 150);
@@ -445,7 +445,8 @@ namespace BeevisionSolution.Controller
             // STEP 6: Unclamp & Retract Up (Nâng trục tỳ mở kẹp về vị trí chờ)
             SetState(SequenceState.UnclampingUp);
 
-            double retractSpeed = cfg?.RetractVelocity ?? 80.0;
+            var standbyPt = cfg?.TeachingPoints?.FirstOrDefault(p => p.StepType == "Standby" || p.Id == 1);
+            double retractSpeed = standbyPt != null && standbyPt.Speed > 0 ? standbyPt.Speed : (cfg?.RetractVelocity ?? 80.0);
             Log($"[Sequence] Retracting press axis to standby position (Speed {retractSpeed:F1} mm/s)...");
             bool retractOk = await Motion.RetractUpAsync(retractSpeed, ct);
             if (!retractOk)

@@ -840,24 +840,73 @@ namespace BeevisionSolution.Views
         {
             _teachingPoints.Clear();
             var cfg = specificConfig ?? MotionSequenceManager.Instance.Motion?.Config;
-            if (cfg?.TeachingPoints != null)
+            if (cfg == null && File.Exists(Common.MotionConfigFile))
             {
-                foreach (var pt in cfg.TeachingPoints)
+                try
                 {
-                    _teachingPoints.Add(pt);
+                    string json = File.ReadAllText(Common.MotionConfigFile);
+                    cfg = Newtonsoft.Json.JsonConvert.DeserializeObject<MotionConfig>(json, Common.JsonPrivate);
+                    if (cfg != null && MotionSequenceManager.Instance.Motion != null)
+                    {
+                        MotionSequenceManager.Instance.Motion.Config = cfg;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Motion_OnLogMessage($"[Teaching Error] Failed to read motion_config.json: {ex.Message}");
                 }
             }
 
-            if (_teachingPoints.Count == 0)
+            if (cfg != null)
             {
-                _teachingPoints.Add(new TeachingPoint { Id = 1, Name = "1. Standby / Retract", AxisIndex = 0, Position = 0.0, Speed = 80.0, StepType = "Standby", StepOrder = 1, TriggerVision = false });
-                _teachingPoints.Add(new TeachingPoint { Id = 2, Name = "2. Clamping / Press", AxisIndex = 0, Position = 80.0, Speed = 50.0, StepType = "CheckVision", StepOrder = 2, TriggerVision = true, JobId = 0 });
+                if (cfg.TeachingPoints != null && cfg.TeachingPoints.Count > 0)
+                {
+                    foreach (var pt in cfg.TeachingPoints)
+                    {
+                        _teachingPoints.Add(pt);
+                    }
+                }
+                else
+                {
+                    cfg.EnsureDefaultTeachingPoints();
+                    if (cfg.TeachingPoints != null)
+                    {
+                        foreach (var pt in cfg.TeachingPoints)
+                        {
+                            _teachingPoints.Add(pt);
+                        }
+                    }
+                }
             }
+        }
+
+        private TeachingPoint GetSelectedTeachingPoint()
+        {
+            if (dgTeachingPoints.SelectedItem is TeachingPoint pt)
+                return pt;
+
+            if (dgTeachingPoints.CurrentItem is TeachingPoint curPt)
+                return curPt;
+
+            if (dgTeachingPoints.SelectedCells != null && dgTeachingPoints.SelectedCells.Count > 0)
+            {
+                var cell = dgTeachingPoints.SelectedCells[0];
+                if (cell.Item is TeachingPoint cellPt)
+                    return cellPt;
+            }
+
+            if (dgTeachingPoints.SelectedIndex >= 0 && dgTeachingPoints.SelectedIndex < _teachingPoints.Count)
+            {
+                return _teachingPoints[dgTeachingPoints.SelectedIndex];
+            }
+
+            return null;
         }
 
         private void BtnTeachCurrent_Click(object sender, RoutedEventArgs e)
         {
-            if (dgTeachingPoints.SelectedItem is TeachingPoint selectedPt)
+            var selectedPt = GetSelectedTeachingPoint();
+            if (selectedPt != null)
             {
                 var sts = MotionSequenceManager.Instance.Motion?.GetAxisState(_currentAxis);
                 if (sts != null)
@@ -868,21 +917,9 @@ namespace BeevisionSolution.Views
                     Motion_OnLogMessage($"[Teaching] Point '{selectedPt.Name}' position updated to {selectedPt.Position:F3} mm");
                 }
             }
-        }
-
-        private async void BtnRunToPoint_Click(object sender, RoutedEventArgs e)
-        {
-            if (dgTeachingPoints.SelectedItem is TeachingPoint selectedPt)
+            else
             {
-                btnRunToPoint.IsEnabled = false;
-                try
-                {
-                    await MotionSequenceManager.Instance.MoveToPointAsync(selectedPt);
-                }
-                finally
-                {
-                    btnRunToPoint.IsEnabled = true;
-                }
+                MessageBox.Show("Please select a teaching point in the table to update position.", "Nitto Motion", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -892,7 +929,7 @@ namespace BeevisionSolution.Views
             var sts = MotionSequenceManager.Instance.Motion?.GetAxisState(_currentAxis);
             double curPos = sts != null ? Math.Round(sts.ActualPosition, 3) : 0.0;
 
-            _teachingPoints.Add(new TeachingPoint
+            var newPt = new TeachingPoint
             {
                 Id = nextId,
                 Name = $"Point {nextId}",
@@ -902,29 +939,104 @@ namespace BeevisionSolution.Views
                 StepType = "CheckVision",
                 StepOrder = nextId,
                 TriggerVision = false
-            });
+            };
+            _teachingPoints.Add(newPt);
+            dgTeachingPoints.SelectedItem = newPt;
+            dgTeachingPoints.ScrollIntoView(newPt);
+            Motion_OnLogMessage($"[Teaching] Added new point '{newPt.Name}' (ID {newPt.Id}).");
         }
 
         private void BtnDeletePoint_Click(object sender, RoutedEventArgs e)
         {
-            if (dgTeachingPoints.SelectedItem is TeachingPoint selectedPt)
+            dgTeachingPoints.CommitEdit(DataGridEditingUnit.Cell, true);
+            dgTeachingPoints.CommitEdit(DataGridEditingUnit.Row, true);
+
+            var selectedPt = GetSelectedTeachingPoint();
+            if (selectedPt != null)
             {
+                string ptName = selectedPt.Name;
+                int ptId = selectedPt.Id;
                 _teachingPoints.Remove(selectedPt);
+                dgTeachingPoints.Items.Refresh();
+                Motion_OnLogMessage($"[Teaching] Deleted point '{ptName}' (ID {ptId}).");
+            }
+            else
+            {
+                MessageBox.Show("Please select a teaching point in the table to delete.", "Nitto Motion", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
         private void BtnSavePoints_Click(object sender, RoutedEventArgs e)
         {
-            var cfg = MotionSequenceManager.Instance.Motion?.Config ?? new MotionConfig();
-            cfg.TeachingPoints = _teachingPoints.ToList();
-            SaveConfigToFile(cfg);
-            MessageBox.Show("Teaching Points saved successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            try
+            {
+                // 1. Kết thúc chỉnh sửa ô / dòng trong DataGrid trước khi lấy dữ liệu
+                dgTeachingPoints.CommitEdit(DataGridEditingUnit.Cell, true);
+                dgTeachingPoints.CommitEdit(DataGridEditingUnit.Row, true);
+
+                var motion = MotionSequenceManager.Instance.Motion;
+                var cfg = motion?.Config ?? new MotionConfig();
+                cfg.TeachingPoints = _teachingPoints.ToList();
+
+                // 2. Đồng bộ ngược từ Teaching Points sang các thuộc tính vận hành chính của máy Nitto Press
+                var standbyPt = _teachingPoints.FirstOrDefault(p => p.StepType == "Standby" || p.Id == 1);
+                if (standbyPt != null)
+                {
+                    cfg.StandbyPosition = standbyPt.Position;
+                    if (standbyPt.Speed > 0) cfg.RetractVelocity = standbyPt.Speed;
+                }
+
+                var clampPt = _teachingPoints.FirstOrDefault(p => p.TriggerVision || p.StepType == "CheckVision" || p.Id == 2);
+                if (clampPt != null)
+                {
+                    cfg.ClampingPosition = clampPt.Position;
+                    if (clampPt.Speed > 0) cfg.ClampingVelocity = clampPt.Speed;
+                    if (clampPt.DwellTimeMs > 0) cfg.ForceDwellTimeMs = clampPt.DwellTimeMs;
+                }
+
+                if (motion != null)
+                {
+                    motion.Config = cfg;
+                }
+
+                SaveConfigToFile(cfg);
+                dgTeachingPoints.Items.Refresh();
+                Motion_OnLogMessage($"[Teaching] Saved {_teachingPoints.Count} points successfully (Standby: {cfg.StandbyPosition:F2}mm @ {cfg.RetractVelocity:F1}mm/s, Clamp: {cfg.ClampingPosition:F2}mm @ {cfg.ClampingVelocity:F1}mm/s).");
+                MessageBox.Show("Teaching Points saved successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Save Points Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void BtnReloadPoints_Click(object sender, RoutedEventArgs e)
         {
-            LoadTeachingPoints();
-            Motion_OnLogMessage("[Teaching] Teaching points reloaded.");
+            try
+            {
+                if (File.Exists(Common.MotionConfigFile))
+                {
+                    string json = File.ReadAllText(Common.MotionConfigFile);
+                    var cfg = Newtonsoft.Json.JsonConvert.DeserializeObject<MotionConfig>(json, Common.JsonPrivate);
+                    if (cfg != null)
+                    {
+                        if (MotionSequenceManager.Instance.Motion != null)
+                        {
+                            MotionSequenceManager.Instance.Motion.Config = cfg;
+                        }
+                        LoadTeachingPoints(cfg);
+                        Motion_OnLogMessage("[Teaching] Teaching points reloaded from motion_config.json.");
+                        return;
+                    }
+                }
+
+                LoadTeachingPoints();
+                Motion_OnLogMessage("[Teaching] Teaching points reloaded.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Reload Points Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
         #endregion
 

@@ -41,7 +41,7 @@ namespace BeevisionSolution.Utils
         public static event EventHandler LayoutSettingChanged;
 
         internal static bool ConfiguredLog { get; set; } = false;
-        internal static JsonSerializerSettings JsonPrivate = new JsonSerializerSettings { ContractResolver = new PrivateSetterContractResolver(), ReferenceLoopHandling = ReferenceLoopHandling.Ignore };
+        internal static JsonSerializerSettings JsonPrivate = new JsonSerializerSettings { ContractResolver = new PrivateSetterContractResolver(), ReferenceLoopHandling = ReferenceLoopHandling.Ignore, ObjectCreationHandling = ObjectCreationHandling.Replace };
         internal static JsonSerializerSettings JsonAbstractJob = new JsonSerializerSettings { ContractResolver = new PrivateSetterContractResolver(), Converters = new JsonConverter[] { new VisionJobConverter() } };
         internal static JsonSerializerSettings JsonAbstractLight = new JsonSerializerSettings { ContractResolver = new PrivateSetterContractResolver(), Converters = new JsonConverter[] { new LightConverter() } };
         internal static AppSettings Settings = GetObjectFromFile<AppSettings>(AppConfigFile);

@@ -22,13 +22,13 @@ namespace BeevisionSolution.ViewComponents
         private const int MaxLogLines = 200;
 
         private static readonly SolidColorBrush TileOffBrush = new SolidColorBrush(Color.FromRgb(0x25, 0x25, 0x26));
-        private static readonly SolidColorBrush TileGreenBrush = new SolidColorBrush(Color.FromRgb(0x2E, 0x8B, 0x57));
+        private static readonly SolidColorBrush TileGreenBrush = new SolidColorBrush(Color.FromRgb(0x10, 0x7C, 0x41));
         private static readonly SolidColorBrush TileBlueBrush = new SolidColorBrush(Color.FromRgb(0x00, 0x7A, 0xCC));
-        private static readonly SolidColorBrush TileRedBrush = new SolidColorBrush(Color.FromRgb(0xDC, 0x14, 0x3C));
-        private static readonly SolidColorBrush TileYellowBrush = new SolidColorBrush(Color.FromRgb(0xD4, 0xAF, 0x37));
+        private static readonly SolidColorBrush TileRedBrush = new SolidColorBrush(Color.FromRgb(0xC4, 0x2B, 0x1C));
+        private static readonly SolidColorBrush TileYellowBrush = new SolidColorBrush(Color.FromRgb(0x00, 0x7A, 0xCC));
         private static readonly SolidColorBrush TileDarkGrayBrush = new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
 
-        // Màu trạng thái hiển thị cho toàn bộ vùng Card Sensors & Tower Signals (Background, BorderBrush & LED indicator)
+        // Màu trạng thái đồng bộ cho toàn bộ vùng Card I/O Signals khi Active (Tông xanh lá công nghiệp)
         private static readonly SolidColorBrush CardGreenBgBrush = new SolidColorBrush(Color.FromRgb(0x16, 0x3E, 0x2B));
         private static readonly SolidColorBrush CardGreenBorderBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xE6, 0x76));
         private static readonly SolidColorBrush CardGreenLedBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xE6, 0x76));
@@ -37,13 +37,13 @@ namespace BeevisionSolution.ViewComponents
         private static readonly SolidColorBrush CardRedBorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
         private static readonly SolidColorBrush CardRedLedBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
 
-        private static readonly SolidColorBrush CardBlueBgBrush = new SolidColorBrush(Color.FromRgb(0x0D, 0x33, 0x56));
-        private static readonly SolidColorBrush CardBlueBorderBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xBF, 0xFF));
-        private static readonly SolidColorBrush CardBlueLedBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xBF, 0xFF));
+        private static readonly SolidColorBrush CardBlueBgBrush = CardGreenBgBrush;
+        private static readonly SolidColorBrush CardBlueBorderBrush = CardGreenBorderBrush;
+        private static readonly SolidColorBrush CardBlueLedBrush = CardGreenLedBrush;
 
-        private static readonly SolidColorBrush CardYellowBgBrush = new SolidColorBrush(Color.FromRgb(0x3D, 0x35, 0x12));
-        private static readonly SolidColorBrush CardYellowBorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
-        private static readonly SolidColorBrush CardYellowLedBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+        private static readonly SolidColorBrush CardYellowBgBrush = CardGreenBgBrush;
+        private static readonly SolidColorBrush CardYellowBorderBrush = CardGreenBorderBrush;
+        private static readonly SolidColorBrush CardYellowLedBrush = CardGreenLedBrush;
 
         public MotionMainDashboardView()
         {
@@ -120,13 +120,13 @@ namespace BeevisionSolution.ViewComponents
 
                 // Cập nhật các ô trạng thái (Tiles)
                 tileSvOn.Background = state.IsServoOn ? TileGreenBrush : TileOffBrush;
-                tileInp.Background = state.IsInPosition ? TileBlueBrush : TileOffBrush;
+                tileInp.Background = state.IsInPosition ? TileGreenBrush : TileOffBrush;
                 tileHome.Background = state.IsHomed ? TileGreenBrush : TileOffBrush;
                 tileLmPos.Background = state.LimitPositive ? TileRedBrush : TileOffBrush;
                 tileLmNeg.Background = state.LimitNegative ? TileRedBrush : TileOffBrush;
                 tileAlm.Background = state.IsError ? TileRedBrush : TileOffBrush;
                 tileEmg.Background = state.EmergencyStop ? TileRedBrush : TileOffBrush;
-                tileBusy.Background = state.IsBusy ? TileYellowBrush : TileOffBrush;
+                tileBusy.Background = state.IsBusy ? TileBlueBrush : TileOffBrush;
 
                 // Nút Servo Toggle
                 if (txtServoBtn != null)
@@ -268,7 +268,7 @@ namespace BeevisionSolution.ViewComponents
 
             // Status matrix tiles
             if (tileForce != null) tileForce.Background = forceReached ? TileGreenBrush : TileOffBrush;
-            if (tilePart != null) tilePart.Background = partPresent ? TileBlueBrush : TileOffBrush;
+            if (tilePart != null) tilePart.Background = partPresent ? TileGreenBrush : TileOffBrush;
             if (tileLight != null) tileLight.Background = _isLightOn ? TileGreenBrush : TileOffBrush;
 
             // Two-Hand Trigger IDEC indicators

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace BeeMotionModule.Models
 {
@@ -13,29 +15,127 @@ namespace BeeMotionModule.Models
     /// <summary>
     /// Represents a teaching point with axis position, speed, dwell time, and Vision Job mapping.
     /// </summary>
-    public class TeachingPoint
+    public class TeachingPoint : INotifyPropertyChanged
     {
-        public int Id { get; set; } = 1;
-        public string Name { get; set; } = "Point 1";
-        public short AxisIndex { get; set; } = 0;
-        public double Position { get; set; } = 0.0;       // Toa do muc tieu (mm)
-        public double Speed { get; set; } = 100.0;        // Van toc di chuyen (mm/s)
-        public double Acceleration { get; set; } = 500.0; // Gia toc (mm/s^2)
-        public int DwellTimeMs { get; set; } = 100;       // Thoi gian dung on dinh (ms)
-        
-        public bool TriggerVision { get; set; } = false;  // Co kich hoat chup anh tai diem nay khong
-        public int JobId { get; set; } = 0;               // ID cua Vision Job / ToolBlock can chay
-        
-        public NgAction ActionOnNg { get; set; } = NgAction.Continue;
-        public int TargetPointIdOnNg { get; set; } = 0;   // ID diem can nhay den neu phat hien NG
+        public event PropertyChangedEventHandler PropertyChanged;
 
-        public int SetDoPinOnArrival { get; set; } = -1;  // Kich hoat chan DO nao khi den vi tri (-1 la khong dung)
-        public bool DoStateOnArrival { get; set; } = true;
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private int _id = 1;
+        public int Id
+        {
+            get => _id;
+            set { if (_id != value) { _id = value; OnPropertyChanged(); } }
+        }
+
+        private string _name = "Point 1";
+        public string Name
+        {
+            get => _name;
+            set { if (_name != value) { _name = value; OnPropertyChanged(); } }
+        }
+
+        private short _axisIndex = 0;
+        public short AxisIndex
+        {
+            get => _axisIndex;
+            set { if (_axisIndex != value) { _axisIndex = value; OnPropertyChanged(); } }
+        }
+
+        private double _position = 0.0;
+        public double Position
+        {
+            get => _position;
+            set { if (_position != value) { _position = value; OnPropertyChanged(); } }
+        }
+
+        private double _speed = 100.0;
+        public double Speed
+        {
+            get => _speed;
+            set { if (_speed != value) { _speed = value; OnPropertyChanged(); } }
+        }
+
+        private double _acceleration = 500.0;
+        public double Acceleration
+        {
+            get => _acceleration;
+            set { if (_acceleration != value) { _acceleration = value; OnPropertyChanged(); } }
+        }
+
+        private int _dwellTimeMs = 100;
+        public int DwellTimeMs
+        {
+            get => _dwellTimeMs;
+            set { if (_dwellTimeMs != value) { _dwellTimeMs = value; OnPropertyChanged(); } }
+        }
+
+        private bool _triggerVision = false;
+        public bool TriggerVision
+        {
+            get => _triggerVision;
+            set { if (_triggerVision != value) { _triggerVision = value; OnPropertyChanged(); } }
+        }
+
+        private int _jobId = 0;
+        public int JobId
+        {
+            get => _jobId;
+            set { if (_jobId != value) { _jobId = value; OnPropertyChanged(); } }
+        }
+
+        private NgAction _actionOnNg = NgAction.Continue;
+        public NgAction ActionOnNg
+        {
+            get => _actionOnNg;
+            set { if (_actionOnNg != value) { _actionOnNg = value; OnPropertyChanged(); } }
+        }
+
+        private int _targetPointIdOnNg = 0;
+        public int TargetPointIdOnNg
+        {
+            get => _targetPointIdOnNg;
+            set { if (_targetPointIdOnNg != value) { _targetPointIdOnNg = value; OnPropertyChanged(); } }
+        }
+
+        private int _setDoPinOnArrival = -1;
+        public int SetDoPinOnArrival
+        {
+            get => _setDoPinOnArrival;
+            set { if (_setDoPinOnArrival != value) { _setDoPinOnArrival = value; OnPropertyChanged(); } }
+        }
+
+        private bool _doStateOnArrival = true;
+        public bool DoStateOnArrival
+        {
+            get => _doStateOnArrival;
+            set { if (_doStateOnArrival != value) { _doStateOnArrival = value; OnPropertyChanged(); } }
+        }
 
         // Process step coordination (like MotionVision)
-        public string StepType { get; set; } = "CheckVision"; // Waiting, CheckVision, TrayIn, TrayOut
-        public int StepOrder { get; set; } = 0;
-        public double TimeoutMs { get; set; } = 5000.0;
+        private string _stepType = "CheckVision";
+        public string StepType
+        {
+            get => _stepType;
+            set { if (_stepType != value) { _stepType = value; OnPropertyChanged(); } }
+        }
+
+        private int _stepOrder = 0;
+        public int StepOrder
+        {
+            get => _stepOrder;
+            set { if (_stepOrder != value) { _stepOrder = value; OnPropertyChanged(); } }
+        }
+
+        private double _timeoutMs = 5000.0;
+        public double TimeoutMs
+        {
+            get => _timeoutMs;
+            set { if (_timeoutMs != value) { _timeoutMs = value; OnPropertyChanged(); } }
+        }
 
         public TeachingPoint Clone()
         {

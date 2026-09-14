@@ -23,7 +23,11 @@ namespace BeeMotionModule
         public bool IsConnected => _cardHandle != 0 || (_config != null && _config.Simulate);
         public bool IsMasterOp { get; private set; } = false;
         public uint MasterStatus { get; private set; } = 0;
-        public MotionConfig Config => _config;
+        public MotionConfig Config
+        {
+            get => _config;
+            set => _config = value ?? new MotionConfig();
+        }
 
         public event Action<short, AxisState> OnAxisStateUpdated;
         public event Action<string> OnLogMessage;
@@ -990,8 +994,9 @@ namespace BeeMotionModule
         public async Task<bool> ClampDownAsync(double targetPos = 0, double speed = 0, CancellationToken ct = default)
         {
             short axis = 0;
-            double pos = targetPos > 0 ? targetPos : (_config?.ClampingPosition ?? 80.0);
-            double spd = speed > 0 ? speed : (_config?.ClampingVelocity ?? 50.0);
+            var clampPt = _config?.TeachingPoints?.FirstOrDefault(p => p.TriggerVision || p.StepType == "CheckVision" || p.Id == 2);
+            double pos = targetPos > 0 ? targetPos : (clampPt != null && clampPt.Position > 0 ? clampPt.Position : (_config?.ClampingPosition ?? 80.0));
+            double spd = speed > 0 ? speed : (clampPt != null && clampPt.Speed > 0 ? clampPt.Speed : (_config?.ClampingVelocity ?? 50.0));
             double jogSpeed = _config?.ClampJogVelocity > 0 ? _config.ClampJogVelocity : 10.0;
 
             if (GetSystemStopSensor())
@@ -1099,8 +1104,9 @@ namespace BeeMotionModule
         public async Task<bool> RetractUpAsync(double speed = 0, CancellationToken ct = default)
         {
             short axis = 0;
-            double pos = _config?.StandbyPosition ?? 0.0;
-            double spd = speed > 0 ? speed : (_config?.RetractVelocity ?? 80.0);
+            var standbyPt = _config?.TeachingPoints?.FirstOrDefault(p => p.StepType == "Standby" || p.Id == 1);
+            double pos = standbyPt != null ? standbyPt.Position : (_config?.StandbyPosition ?? 0.0);
+            double spd = speed > 0 ? speed : (standbyPt != null && standbyPt.Speed > 0 ? standbyPt.Speed : (_config?.RetractVelocity ?? 80.0));
 
             if (GetSystemStopSensor())
             {
