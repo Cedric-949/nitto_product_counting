@@ -473,7 +473,7 @@ namespace BeevisionSolution.Views
 
                     for (short i = 0; i < totalAxes; i++)
                     {
-                        // Gọi chuỗi: Mở phanh PCIe DO 2 -> Clear Emergency -> Servo ON
+                        // Mở phanh theo mapping cấu hình trước khi xóa lỗi và Servo ON.
                         bool svOk = await MotionSequenceManager.Instance.EnableServoSequenceAsync(i);
                         Info("[Motion] Axis {0}: Reset Error & Servo ON -> {1}", i, svOk ? "Done" : "Failed");
                     }

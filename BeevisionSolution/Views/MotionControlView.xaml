@@ -487,6 +487,7 @@
                                 <Border Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="2">
                                     <StackPanel>
                                         <CheckBox x:Name="chkTestProgramMode" Content="Enable Mock Test Simulation" FontWeight="Bold" FontSize="12" Foreground="#FFD700" Checked="ChkTestProgramMode_Changed" Unchecked="ChkTestProgramMode_Changed" Margin="0,0,0,8"/>
+                                        <CheckBox x:Name="chkForceVisionOk" Content="Force Vision OK (Test Only)" FontWeight="Bold" FontSize="12" Foreground="#FF9800" Checked="ChkForceVisionOk_Changed" Unchecked="ChkForceVisionOk_Changed" Margin="0,0,0,8"/>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
@@ -601,6 +602,14 @@
                                         <TextBlock Text="Deceleration (mm/s²):" Grid.Column="0"/>
                                         <TextBox x:Name="txtMaxDec" Text="500000" Grid.Column="1"/>
                                     </Grid>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="110"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Clamp Jog Speed (mm/s):" Grid.Column="0"/>
+                                        <TextBox x:Name="txtClampJogSpeed" Text="10.0" Grid.Column="1"/>
+                                    </Grid>
                                 </StackPanel>
                             </GroupBox>
 
@@ -678,10 +687,10 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="45"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Left Trigger DI:" Grid.Column="0"/>
-                                        <TextBox x:Name="txtIoBitTriggerLeft" Text="0" Grid.Column="1"/>
-                                        <TextBlock Text="Right Trigger DI:" Grid.Column="2" Margin="4,0,0,0"/>
-                                        <TextBox x:Name="txtIoBitTriggerRight" Text="1" Grid.Column="3"/>
+                                        <TextBlock Text="Btn_01 DI (X02):" Grid.Column="0"/>
+                                        <TextBox x:Name="txtIoBitTriggerLeft" Text="1" Grid.Column="1"/>
+                                        <TextBlock Text="Btn_02 DI (X03):" Grid.Column="2" Margin="4,0,0,0"/>
+                                        <TextBox x:Name="txtIoBitTriggerRight" Text="2" Grid.Column="3"/>
                                     </Grid>
                                     <Grid Margin="0,3">
                                         <Grid.ColumnDefinitions>
@@ -690,10 +699,10 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="45"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Force Reached DI:" Grid.Column="0"/>
-                                        <TextBox x:Name="txtIoBitForceReached" Text="2" Grid.Column="1"/>
-                                        <TextBlock Text="Home/Up Sensor DI:" Grid.Column="2" Margin="4,0,0,0"/>
-                                        <TextBox x:Name="txtIoBitSensorHomeUp" Text="3" Grid.Column="3"/>
+                                        <TextBlock Text="LC_OK DI (X11):" Grid.Column="0"/>
+                                        <TextBox x:Name="txtIoBitForceReached" Text="10" Grid.Column="1"/>
+                                        <TextBlock Text="LC_High DI (X12, unused):" Grid.Column="2" Margin="4,0,0,0"/>
+                                        <TextBox x:Name="txtIoBitSensorHomeUp" Text="11" Grid.Column="3"/>
                                     </Grid>
                                     <Grid Margin="0,3">
                                         <Grid.ColumnDefinitions>
@@ -702,10 +711,10 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="45"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Down Limit DI:" Grid.Column="0"/>
-                                        <TextBox x:Name="txtIoBitSensorDownLimit" Text="4" Grid.Column="1"/>
-                                        <TextBlock Text="Part on Jig DI:" Grid.Column="2" Margin="4,0,0,0"/>
-                                        <TextBox x:Name="txtIoBitSensorPartPresent" Text="5" Grid.Column="3"/>
+                                        <TextBlock Text="LC_Low DI (X10, unused):" Grid.Column="0"/>
+                                        <TextBox x:Name="txtIoBitSensorDownLimit" Text="9" Grid.Column="1"/>
+                                        <TextBlock Text="DI8 (unused):" Grid.Column="2" Margin="4,0,0,0"/>
+                                        <TextBox x:Name="txtIoBitSensorPartPresent" Text="8" Grid.Column="3"/>
                                     </Grid>
                                     <Grid Margin="0,3">
                                         <Grid.ColumnDefinitions>
@@ -714,10 +723,8 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="45"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Emergency Stop DI:" Grid.Column="0"/>
-                                        <TextBox x:Name="txtIoBitSystemStop" Text="6" Grid.Column="1"/>
-                                        <TextBlock Text="Camera Trigger DO:" Grid.Column="2" Margin="4,0,0,0"/>
-                                        <TextBox x:Name="txtIoBitCamTrigger" Text="3" Grid.Column="3"/>
+                                        <TextBlock Text="System Stop DI (-1 = not mapped):" Grid.Column="0"/>
+                                        <TextBox x:Name="txtIoBitSafetyStop" Text="-1" Grid.Column="1"/>
                                     </Grid>
                                     <Grid Margin="0,3">
                                         <Grid.ColumnDefinitions>
@@ -726,10 +733,10 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="45"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Tower Green DO:" Grid.Column="0"/>
-                                        <TextBox x:Name="txtIoBitTowerGreen" Text="0" Grid.Column="1"/>
-                                        <TextBlock Text="Tower Red DO:" Grid.Column="2" Margin="4,0,0,0"/>
-                                        <TextBox x:Name="txtIoBitTowerRed" Text="1" Grid.Column="3"/>
+                                        <TextBlock Text="Brake_Servo DO (Y01):" Grid.Column="0"/>
+                                        <TextBox x:Name="txtIoBitSystemStop" Text="0" Grid.Column="1"/>
+                                        <TextBlock Text="Ch1 Light Trigger DO (Y09):" Grid.Column="2" Margin="4,0,0,0"/>
+                                        <TextBox x:Name="txtIoBitCamTrigger" Text="8" Grid.Column="3"/>
                                     </Grid>
                                     <Grid Margin="0,3">
                                         <Grid.ColumnDefinitions>
@@ -738,9 +745,21 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="45"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Tower Buzzer DO:" Grid.Column="0"/>
-                                        <TextBox x:Name="txtIoBitTowerBuzzer" Text="2" Grid.Column="1"/>
-                                        <TextBlock Text="Backlight DO:" Grid.Column="2" Margin="4,0,0,0"/>
+                                        <TextBlock Text="Btn1_Lamp DO (Y02):" Grid.Column="0"/>
+                                        <TextBox x:Name="txtIoBitTowerGreen" Text="1" Grid.Column="1"/>
+                                        <TextBlock Text="Btn2_Lamp DO (Y03):" Grid.Column="2" Margin="4,0,0,0"/>
+                                        <TextBox x:Name="txtIoBitTowerRed" Text="2" Grid.Column="3"/>
+                                    </Grid>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="45"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="45"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="LC_Reset DO (Y04):" Grid.Column="0"/>
+                                        <TextBox x:Name="txtIoBitTowerBuzzer" Text="3" Grid.Column="1"/>
+                                        <TextBlock Text="LC_Hold DO (Y05):" Grid.Column="2" Margin="4,0,0,0"/>
                                         <TextBox x:Name="txtIoBitBacklight" Text="4" Grid.Column="3"/>
                                     </Grid>
                                 </StackPanel>

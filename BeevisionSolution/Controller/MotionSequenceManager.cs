@@ -16,10 +16,10 @@ namespace BeevisionSolution.Controller
         CheckingReady,          // Kiểm tra servo & an toàn
         WaitingTrigger,         // Chờ nhấn 2 nút trigger IDEC
         ClampingDown,           // Hạ cơ cấu tỳ kẹp phẳng tệp sản phẩm (Leadshine EL7)
-        TriggeringVision,       // Bật Backlight, duy trì lực tỳ ổn định
+        TriggeringVision,       // Chờ lực ổn định trước khi chạy Inspection
         ProcessingVision,       // VisionPro đếm 100pcs và kiểm tra ngược mặt
         UnclampingUp,           // Nâng cơ cấu tỳ về vị trí mở kẹp
-        FinishingCycle,         // Cập nhật kết quả, bật đèn tháp OK/NG
+        FinishingCycle,         // Cập nhật kết quả chu trình
         Error,                  // Báo lỗi
         Stopped,                // Dừng
         // Backward compatibility
@@ -50,7 +50,7 @@ namespace BeevisionSolution.Controller
         public bool IsTestProgramMode { get; set; } = false;
         public string MockVisionResult { get; set; } = "OK"; // "OK", "NG1", "NG2", "NG3"
         public int WatchdogTimeoutMs { get; set; } = 30000;
-        public short BrakeDOPin { get; set; } = 1;
+        public short BrakeDOPin => (short)(Motion?.Config?.IO?.BrakeServoDOBit ?? 0);
         public event Action<SequenceState> OnStateChanged;
         public event Action<string> OnLog;
         public event Action<int, double, bool> OnCycleCompleted; // cycleCount, cycleTimeMs, isOk
@@ -144,6 +144,10 @@ namespace BeevisionSolution.Controller
         {
             Log("[Sequence] Initializing Nitto Motion Control subsystem...");
             AttachPCIeIO();
+            if (config?.IO?.MigrateTemporaryInputMapping() == true)
+            {
+                Log("[Sequence Config] Migrated temporary DI mapping to the current EX-E2I12O16 wiring.");
+            }
             bool ok = Motion.Init(config);
             if (ok)
             {
@@ -167,16 +171,7 @@ namespace BeevisionSolution.Controller
             try
             {
                 Log($"[Servo Sequence] Step 1: Releasing motor brake via PCIe DO {BrakeDOPin}...");
-                var pcieIo = IoJobCtrl.GetIOcardCtrl();
-                if (pcieIo != null && pcieIo.IsInit)
-                {
-                    pcieIo.SetPinOutput(BrakeDOPin, true); // ON chân nhả phanh
-                }
-                else
-                {
-                    // Fallback sang motion nếu dùng onboard
-                    Motion.SetDigitalOutput(BrakeDOPin, true);
-                }
+                SetDigitalOutput(BrakeDOPin, true);
                 await Task.Delay(150, ct); // Chờ rơle mở phanh vật lý
 
                 Log($"[Servo Sequence] Step 2: Clearing Emergency & Resetting Driver Alarm for Axis {axis}...");
@@ -291,10 +286,9 @@ namespace BeevisionSolution.Controller
         {
             return StartCycleAsync(continuous, onVisionProcessTrigger != null ? new Func<int, Task<bool>>(jobId => onVisionProcessTrigger()) : null);
         }
-        // Default DI pin definitions for two-hand start buttons and Loadcell sensor
-        public short StartBtn1DIPin { get; set; } = 4; // DI 4: Left Start button
-        public short StartBtn2DIPin { get; set; } = 5; // DI 5: Right Start button
-        public short LoadcellDIPin { get; set; } = 6;  // DI 6: Loadcell sensor
+        public short StartBtn1DIPin => (short)(Motion?.Config?.IO?.TriggerBtnLeftDIBit ?? 1);
+        public short StartBtn2DIPin => (short)(Motion?.Config?.IO?.TriggerBtnRightDIBit ?? 2);
+        public short LoadcellDIPin => (short)(Motion?.Config?.IO?.ForceReachedDIBit ?? 10);
 
         public async Task<bool> SimulateTriggerAsync()
         {
@@ -313,6 +307,18 @@ namespace BeevisionSolution.Controller
             if (!Motion.IsMasterOp && !cfg.Simulate)
             {
                 Log("[Sequence Error] EtherCAT Master is not in OP state (State 6). Please check network cable and driver.");
+                SetState(SequenceState.Error);
+                return false;
+            }
+
+            if (!cfg.Simulate && (cfg.IO == null || cfg.IO.SystemStopDIBit < 0))
+            {
+                Log("[Sequence Warning] System stop DI is not wired; external emergency-stop monitoring is bypassed for this setup.");
+            }
+            else if (!cfg.Simulate && Motion.GetSystemStopSensor())
+            {
+                Log("[Sequence Error] System stop sensor is active. Cycle aborted.");
+                Motion.EmergencyStop();
                 SetState(SequenceState.Error);
                 return false;
             }
@@ -336,22 +342,40 @@ namespace BeevisionSolution.Controller
                 Log($"[Sequence] Waiting for operator to press both safety trigger buttons simultaneously (DI {StartBtn1DIPin} & DI {StartBtn2DIPin})...");
 
                 bool triggered = false;
+                bool syncWindowExpired = false;
+                int syncTimeMs = cfg.TwoHandSyncTimeMs > 0 ? cfg.TwoHandSyncTimeMs : 500;
+                var twoHandTimer = new Stopwatch();
                 while (!ct.IsCancellationRequested && IsRunning)
                 {
-                    bool left = Motion.IsTriggerLeftPressed() || Motion.GetDigitalInput(StartBtn1DIPin);
-                    bool right = Motion.IsTriggerRightPressed() || Motion.GetDigitalInput(StartBtn2DIPin);
+                    bool left = Motion.IsTriggerLeftPressed();
+                    bool right = Motion.IsTriggerRightPressed();
 
-                    if (left && right)
+                    if (!left && !right)
                     {
-                        await Task.Delay(30, ct); // Debounce 30ms
-                        bool leftDebounce = Motion.IsTriggerLeftPressed() || Motion.GetDigitalInput(StartBtn1DIPin);
-                        bool rightDebounce = Motion.IsTriggerRightPressed() || Motion.GetDigitalInput(StartBtn2DIPin);
+                        twoHandTimer.Reset();
+                        syncWindowExpired = false;
+                    }
+                    else if (!syncWindowExpired)
+                    {
+                        if (!twoHandTimer.IsRunning) twoHandTimer.Start();
 
-                        if (leftDebounce && rightDebounce)
+                        if (twoHandTimer.ElapsedMilliseconds > syncTimeMs)
                         {
-                            Log("[Sequence Trigger] Both safety trigger buttons pressed and confirmed -> Starting clamping cycle!");
-                            triggered = true;
-                            break;
+                            syncWindowExpired = true;
+                            Log($"[Sequence Trigger] Two-hand synchronization exceeded {syncTimeMs} ms. Release both buttons and try again.");
+                        }
+                        else if (left && right)
+                        {
+                            await Task.Delay(30, ct); // Lọc dội tiếp điểm trong 30 ms
+                            bool leftDebounce = Motion.IsTriggerLeftPressed();
+                            bool rightDebounce = Motion.IsTriggerRightPressed();
+
+                            if (leftDebounce && rightDebounce && twoHandTimer.ElapsedMilliseconds <= syncTimeMs)
+                            {
+                                Log("[Sequence Trigger] Both safety trigger buttons pressed and confirmed -> Starting clamping cycle!");
+                                triggered = true;
+                                break;
+                            }
                         }
                     }
 
@@ -378,15 +402,9 @@ namespace BeevisionSolution.Controller
                 return false;
             }
 
-            // STEP 4: Force Dwell & Turn ON Backlight
+            // STEP 4: Force Dwell
             SetState(SequenceState.TriggeringVision);
             await Task.Delay(dwellTime, ct);
-
-            // Turn ON Backlight for inspection
-            if (cfg?.IO != null)
-            {
-                Motion.SetDigitalOutput((short)cfg.IO.BacklightDOBit, true);
-            }
 
             // STEP 5: Vision Processing (Đếm số lượng 100 pcs & Kiểm tra ngược mặt)
             SetState(SequenceState.ProcessingVision);
@@ -409,6 +427,12 @@ namespace BeevisionSolution.Controller
                 {
                     visionOk = await JobController.RunJobByIdAsync(visionJobId);
                 }
+
+                if (cfg.ForceVisionOk)
+                {
+                    visionOk = true;
+                    Log("[Sequence Vision] Inspection completed; result overridden to OK by machine setting.");
+                }
             }
             catch (Exception ex)
             {
@@ -420,11 +444,6 @@ namespace BeevisionSolution.Controller
 
             // STEP 6: Unclamp & Retract Up (Nâng trục tỳ mở kẹp về vị trí chờ)
             SetState(SequenceState.UnclampingUp);
-            // Turn OFF Backlight
-            if (cfg?.IO != null)
-            {
-                Motion.SetDigitalOutput((short)cfg.IO.BacklightDOBit, false);
-            }
 
             double retractSpeed = cfg?.RetractVelocity ?? 80.0;
             Log($"[Sequence] Retracting press axis to standby position (Speed {retractSpeed:F1} mm/s)...");
@@ -436,36 +455,13 @@ namespace BeevisionSolution.Controller
 
             // STEP 7: Anti-tie-down protection: Ensure operator releases both buttons before allowing next cycle
             while (!ct.IsCancellationRequested &&
-                   ((Motion.IsTriggerLeftPressed() || Motion.GetDigitalInput(StartBtn1DIPin)) ||
-                    (Motion.IsTriggerRightPressed() || Motion.GetDigitalInput(StartBtn2DIPin))))
+                   (Motion.IsTriggerLeftPressed() || Motion.IsTriggerRightPressed()))
             {
                 await Task.Delay(30, ct);
             }
 
-            // STEP 8: Report & Tower Light Indication
+            // STEP 8: Report
             SetState(SequenceState.FinishingCycle);
-            if (cfg?.IO != null)
-            {
-                if (visionOk)
-                {
-                    Motion.SetDigitalOutput((short)cfg.IO.TowerLightGreenDOBit, true);
-                    Motion.SetDigitalOutput((short)cfg.IO.TowerLightRedDOBit, false);
-                    Motion.SetDigitalOutput((short)cfg.IO.TowerBuzzerDOBit, false);
-                }
-                else
-                {
-                    Motion.SetDigitalOutput((short)cfg.IO.TowerLightGreenDOBit, false);
-                    Motion.SetDigitalOutput((short)cfg.IO.TowerLightRedDOBit, true);
-                    Motion.SetDigitalOutput((short)cfg.IO.TowerBuzzerDOBit, true);
-
-                    // Auto turn off buzzer after 1 second
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(1000);
-                        Motion.SetDigitalOutput((short)cfg.IO.TowerBuzzerDOBit, false);
-                    });
-                }
-            }
 
             return visionOk;
         }

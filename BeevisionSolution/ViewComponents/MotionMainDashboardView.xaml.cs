@@ -275,14 +275,14 @@ namespace BeevisionSolution.ViewComponents
             if (ledTriggerLeft != null) ledTriggerLeft.Fill = trigL ? TileGreenBrush : TileDarkGrayBrush;
             if (txtTriggerLeftStatus != null)
             {
-                txtTriggerLeftStatus.Text = trigL ? "PRESSED (ACTIVE)" : "RELEASED (DI 0)";
+                txtTriggerLeftStatus.Text = trigL ? "PRESSED (ACTIVE)" : "RELEASED (DI 1 / X02)";
                 txtTriggerLeftStatus.Foreground = trigL ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             }
 
             if (ledTriggerRight != null) ledTriggerRight.Fill = trigR ? TileGreenBrush : TileDarkGrayBrush;
             if (txtTriggerRightStatus != null)
             {
-                txtTriggerRightStatus.Text = trigR ? "PRESSED (ACTIVE)" : "RELEASED (DI 1)";
+                txtTriggerRightStatus.Text = trigR ? "PRESSED (ACTIVE)" : "RELEASED (DI 2 / X03)";
                 txtTriggerRightStatus.Foreground = trigR ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             }
 
@@ -290,27 +290,26 @@ namespace BeevisionSolution.ViewComponents
             if (ledForceReached != null) ledForceReached.Fill = forceReached ? TileGreenBrush : TileDarkGrayBrush;
             if (txtForceStatus != null)
             {
-                txtForceStatus.Text = forceReached ? "Force Status: TARGET FORCE HELD (DI 2)" : "Force Status: STANDBY (DI 2)";
+                txtForceStatus.Text = forceReached ? "Load Cell OK: ACTIVE (DI 10 / X11)" : "Load Cell OK: STANDBY (DI 10 / X11)";
                 txtForceStatus.Foreground = forceReached ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             }
 
-            // Misumi Optical Sensors & Tower Signals (Cập nhật cả vùng Border và LED indicator)
+            // Hiển thị các input chưa dùng và trạng thái output thực tế
             UpdateSignalCard(borderHomeUp, ledHomeUpSensor, homeUp, CardGreenBgBrush, CardGreenBorderBrush, CardGreenLedBrush);
             UpdateSignalCard(borderDownLimit, ledDownLimitSensor, downLimit, CardRedBgBrush, CardRedBorderBrush, CardRedLedBrush);
             UpdateSignalCard(borderPartPresent, ledPartPresentSensor, partPresent, CardBlueBgBrush, CardBlueBorderBrush, CardBlueLedBrush);
 
-            // Tower Light & Backlight DO status
-            bool greenDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.TowerLightGreenDOBit ?? 0));
-            bool redDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.TowerLightRedDOBit ?? 1));
-            bool bLightDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.BacklightDOBit ?? 4));
+            bool brakeDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.BrakeServoDOBit ?? 0));
+            bool resetDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.LoadCellResetDOBit ?? 3));
+            bool holdDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.LoadCellHoldDOBit ?? 4));
 
-            UpdateSignalCard(borderTowerGreen, ledTowerGreen, greenDO, CardGreenBgBrush, CardGreenBorderBrush, CardGreenLedBrush);
-            UpdateSignalCard(borderTowerRed, ledTowerRed, redDO, CardRedBgBrush, CardRedBorderBrush, CardRedLedBrush);
-            UpdateSignalCard(borderBacklight, ledBacklight, (_isLightOn || bLightDO), CardYellowBgBrush, CardYellowBorderBrush, CardYellowLedBrush);
+            UpdateSignalCard(borderTowerGreen, ledTowerGreen, brakeDO, CardGreenBgBrush, CardGreenBorderBrush, CardGreenLedBrush);
+            UpdateSignalCard(borderTowerRed, ledTowerRed, resetDO, CardRedBgBrush, CardRedBorderBrush, CardRedLedBrush);
+            UpdateSignalCard(borderBacklight, ledBacklight, holdDO, CardYellowBgBrush, CardYellowBorderBrush, CardYellowLedBrush);
         }
 
         /// <summary>
-        /// Cập nhật hiển thị cho toàn bộ vùng Card của tín hiệu Sensor / Tower Light.
+        /// Cập nhật hiển thị cho toàn bộ vùng Card của tín hiệu I/O.
         /// Khi Active: Cả Background và Border sáng lên tương ứng với màu trạng thái.
         /// Khi Inactive: Trở về màu nền tối và viền xám mặc định.
         /// </summary>
@@ -498,11 +497,7 @@ namespace BeevisionSolution.ViewComponents
             {
                 // Khi tắt Servo: Tắt Servo rồi đóng lại phanh cơ (tắt DO)
                 motion.ServoOff(_currentAxis);
-                var pcieIo = IoJobCtrl.GetIOcardCtrl();
-                if (pcieIo != null && pcieIo.IsInit)
-                {
-                    pcieIo.SetPinOutput(MotionSequenceManager.Instance.BrakeDOPin, false);
-                }
+                MotionSequenceManager.Instance.SetDigitalOutput(MotionSequenceManager.Instance.BrakeDOPin, false);
                 Motion_OnLogMessage($"[Manual] Axis {_currentAxis}: Servo OFF & Brake Locked.");
             }
             else

@@ -22,15 +22,47 @@ namespace BeeMotionModule.Models
     public class IOConfig
     {
         // Nitto Digital Inputs (DI)
-        public int TriggerBtnLeftDIBit { get; set; } = 0;    // Nút nhấn trigger Trái (IDEC YW1L-MF2E10Q4-G)
-        public int TriggerBtnRightDIBit { get; set; } = 1;   // Nút nhấn trigger Phải (IDEC YW1L-MF2E10Q4-G)
-        public int ForceReachedDIBit { get; set; } = 2;      // Tín hiệu đạt lực tỳ (Bongshin CBFSB-10 + BS-205-35)
-        public int SensorHomeUpDIBit { get; set; } = 3;      // Cảm biến quang vị trí trên (Misumi C-MSX674N-2M)
-        public int SensorDownLimitDIBit { get; set; } = 4;   // Cảm biến quang giới hạn dưới (Misumi C-MSX674N-2M)
-        public int SensorPartPresentDIBit { get; set; } = 5; // Cảm biến có phôi trên Jig (Misumi C-MSX674N-2M)
-        public int SystemStopDIBit { get; set; } = 6;        // Nút dừng khẩn cấp (E-Stop)
+        public int TriggerBtnLeftDIBit { get; set; } = 1;    // X02 - Btn_01
+        public int TriggerBtnRightDIBit { get; set; } = 2;   // X03 - Btn_02
+        public int ForceReachedDIBit { get; set; } = 10;     // X11 - Load Cell OK
+        public int SensorHomeUpDIBit { get; set; } = 11;     // X12 - LC_High, hiện chưa sử dụng
+        public int SensorDownLimitDIBit { get; set; } = 9;   // X10 - LC_Low, hiện chưa sử dụng
+        public int SensorPartPresentDIBit { get; set; } = 8; // DI8 hiện chưa sử dụng
+        public int SystemStopDIBit { get; set; } = -1;       // Chưa có chân E-Stop trong bảng I/O hiện tại
+
+        public int LoadCellLowDIBit { get => SensorDownLimitDIBit; set => SensorDownLimitDIBit = value; }
+        public int LoadCellHighDIBit { get => SensorHomeUpDIBit; set => SensorHomeUpDIBit = value; }
+
+        public bool MigrateTemporaryInputMapping()
+        {
+            bool isTemporaryMapping = TriggerBtnLeftDIBit == 0 &&
+                                      TriggerBtnRightDIBit == 1 &&
+                                      ForceReachedDIBit == 2 &&
+                                      SensorHomeUpDIBit == 3 &&
+                                      SensorDownLimitDIBit == 4 &&
+                                      SensorPartPresentDIBit == 5 &&
+                                      SystemStopDIBit == 6;
+            if (!isTemporaryMapping) return false;
+
+            TriggerBtnLeftDIBit = 1;
+            TriggerBtnRightDIBit = 2;
+            ForceReachedDIBit = 10;
+            SensorHomeUpDIBit = 11;
+            SensorDownLimitDIBit = 9;
+            SensorPartPresentDIBit = 8;
+            SystemStopDIBit = -1;
+            return true;
+        }
 
         // Nitto Digital Outputs (DO)
+        public int BrakeServoDOBit { get; set; } = 0;          // Y01 - Brake_Servo
+        public int Button1LampDOBit { get; set; } = 1;         // Y02 - Btn1_Lamp
+        public int Button2LampDOBit { get; set; } = 2;         // Y03 - Btn2_Lamp
+        public int LoadCellResetDOBit { get; set; } = 3;       // Y04 - LC_Reset
+        public int LoadCellHoldDOBit { get; set; } = 4;        // Y05 - LC_Hold
+        public int Channel1LightTriggerDOBit { get; set; } = 8;// Y09 - Ch1_Light_Trigger
+
+        // Giữ các property JSON cũ để không làm hỏng cấu hình đã lưu
         public int TowerLightGreenDOBit { get; set; } = 0;   // Đèn tháp Xanh (OK)
         public int TowerLightRedDOBit { get; set; } = 1;     // Đèn tháp Đỏ (NG)
         public int TowerBuzzerDOBit { get; set; } = 2;       // Còi báo lỗi
@@ -64,10 +96,12 @@ namespace BeeMotionModule.Models
         public double StandbyPosition { get; set; } = 0.0;    // Vị trí mở kẹp trên cao (mm)
         public double ClampingPosition { get; set; } = 80.0;  // Vị trí tỳ ép sản phẩm (mm)
         public double ClampingVelocity { get; set; } = 50.0;  // Vận tốc tỳ ép (mm/s)
+        public double ClampJogVelocity { get; set; } = 10.0;  // Vận tốc jog âm sau khi đến vị trí Clamp Down (mm/s)
         public double RetractVelocity { get; set; } = 80.0;   // Vận tốc nâng lên (mm/s)
         public int ForceDwellTimeMs { get; set; } = 150;      // Thời gian duy trì lực ổn định trước khi chụp (ms)
         public int TwoHandSyncTimeMs { get; set; } = 500;     // Cửa sổ thời gian bấm đồng thời 2 nút IDEC (ms)
         public int DwellTimeMs { get; set; } = 200;
+        public bool ForceVisionOk { get; set; } = false;
 
         // Legacy compatibility
         public double CapturePosition { get => ClampingPosition; set => ClampingPosition = value; }

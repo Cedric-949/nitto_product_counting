@@ -177,7 +177,7 @@
                         <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,3">
                             <iconPacks:PackIconMaterial Kind="CameraIris" Width="24" Height="24" Foreground="#FFD700" HorizontalAlignment="Center"/>
                             <TextBlock Text="Count &amp; Strobe" FontWeight="Bold" FontSize="12" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                            <TextBlock Text="65MP Backlight" Foreground="#FFD700" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="VisionPro Inspection" Foreground="#FFD700" FontSize="10" HorizontalAlignment="Center"/>
                         </StackPanel>
                         <Border Background="#1E2A38" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="8" Padding="6,1" HorizontalAlignment="Center" Grid.Row="2">
                             <TextBlock x:Name="txtStep3Status" Text="WAIT" FontWeight="Bold" Foreground="#888888" FontSize="10"/>
@@ -185,7 +185,7 @@
                     </Grid>
                 </Border>
 
-                <!-- Step 4 Card: Unclamp & Tower Signals -->
+                <!-- Step 4: Thu trục và hoàn tất kết quả -->
                 <Border x:Name="cardStep4" Background="#252526" BorderBrush="#3F3F46" BorderThickness="2" CornerRadius="4" Margin="2" Padding="4">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -234,14 +234,14 @@
                                 <Ellipse x:Name="ledTriggerLeft" Width="14" Height="14" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{DynamicResource strMotionLeftTrigger}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                    <TextBlock x:Name="txtTriggerLeftStatus" Text="RELEASED (DI 0)" FontSize="10" Foreground="#888888"/>
+                                    <TextBlock x:Name="txtTriggerLeftStatus" Text="RELEASED (DI 1 / X02)" FontSize="10" Foreground="#888888"/>
                                 </StackPanel>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledTriggerRight" Width="14" Height="14" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{DynamicResource strMotionRightTrigger}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                    <TextBlock x:Name="txtTriggerRightStatus" Text="RELEASED (DI 1)" FontSize="10" Foreground="#888888"/>
+                                    <TextBlock x:Name="txtTriggerRightStatus" Text="RELEASED (DI 2 / X03)" FontSize="10" Foreground="#888888"/>
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
@@ -258,7 +258,7 @@
                             <Ellipse x:Name="ledForceReached" Width="16" Height="16" Fill="#3F3F46" Margin="0,0,8,0" VerticalAlignment="Center"/>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="{DynamicResource strMotionForceControl}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                <TextBlock x:Name="txtForceStatus" Text="Force Status: STANDBY (DI 2)" FontSize="10" Foreground="#888888" Margin="0,1,0,0"/>
+                                <TextBlock x:Name="txtForceStatus" Text="Load Cell OK: STANDBY (DI 10 / X11)" FontSize="10" Foreground="#888888" Margin="0,1,0,0"/>
                             </StackPanel>
                             <Border Grid.Column="2" Background="#1E2A38" BorderBrush="#007ACC" BorderThickness="1" CornerRadius="3" Padding="4,2" VerticalAlignment="Center">
                                 <TextBlock x:Name="txtForceBadge" Text="BS-205-35" FontSize="10" FontWeight="Bold" Foreground="#00BFFF"/>
@@ -280,72 +280,72 @@
                 </Grid>
             </GroupBox>
 
-            <!-- Right: Optical Sensors (Misumi) & Tower Signals (Qlight) -->
-            <GroupBox Grid.Column="1" Header="{DynamicResource strMotionSensorsTower}" Margin="2,0,2,0">
+            <!-- Các tín hiệu I/O còn lại -->
+            <GroupBox Grid.Column="1" Header="I/O Signals" Margin="2,0,2,0">
                 <Grid Margin="2">
                     <UniformGrid Columns="2">
-                        <!-- Misumi Home/Upper Standby Sensor -->
+                        <!-- X12 LC_High, hiện chưa sử dụng -->
                         <Border x:Name="borderHomeUp" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledHomeUpSensor" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource strMotionHomeUpSensor}" FontSize="11" FontWeight="Bold"/>
-                                    <TextBlock Text="Misumi MSX (DI 3)" FontSize="9" Foreground="#888888"/>
+                                    <TextBlock Text="LC_High (Unused)" FontSize="11" FontWeight="Bold"/>
+                                    <TextBlock Text="DI 11 / X12" FontSize="9" Foreground="#888888"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- Misumi Down Limit Sensor -->
+                        <!-- X10 LC_Low, hiện chưa sử dụng -->
                         <Border x:Name="borderDownLimit" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledDownLimitSensor" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource strMotionDownLimitSensor}" FontSize="11" FontWeight="Bold"/>
-                                    <TextBlock Text="Misumi MSX (DI 4)" FontSize="9" Foreground="#888888"/>
+                                    <TextBlock Text="LC_Low (Unused)" FontSize="11" FontWeight="Bold"/>
+                                    <TextBlock Text="DI 9 / X10" FontSize="9" Foreground="#888888"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- Misumi Part on Jig Sensor -->
+                        <!-- DI8 hiện chưa sử dụng -->
                         <Border x:Name="borderPartPresent" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledPartPresentSensor" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource strMotionPartPresentSensor}" FontSize="11" FontWeight="Bold"/>
-                                    <TextBlock Text="Misumi MSX (DI 5)" FontSize="9" Foreground="#888888"/>
+                                    <TextBlock Text="Unused Input" FontSize="11" FontWeight="Bold"/>
+                                    <TextBlock Text="DI 8 / X09" FontSize="9" Foreground="#888888"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- Tower Light Green -->
+                        <!-- Y01 Brake_Servo -->
                         <Border x:Name="borderTowerGreen" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledTowerGreen" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource strMotionTowerGreen}" FontSize="11" FontWeight="Bold"/>
-                                    <TextBlock Text="Qlight (DO 0)" FontSize="9" Foreground="#888888"/>
+                                    <TextBlock Text="Brake_Servo" FontSize="11" FontWeight="Bold"/>
+                                    <TextBlock Text="DO 0 / Y01" FontSize="9" Foreground="#888888"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- Tower Light Red -->
+                        <!-- Y04 LC_Reset -->
                         <Border x:Name="borderTowerRed" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledTowerRed" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource strMotionTowerRed}" FontSize="11" FontWeight="Bold"/>
-                                    <TextBlock Text="Qlight (DO 1)" FontSize="9" Foreground="#888888"/>
+                                    <TextBlock Text="LC_Reset" FontSize="11" FontWeight="Bold"/>
+                                    <TextBlock Text="DO 3 / Y04" FontSize="9" Foreground="#888888"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- Backlight Output -->
+                        <!-- Y05 LC_Hold -->
                         <Border x:Name="borderBacklight" Height="36" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Margin="2" Padding="6,2">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="ledBacklight" Width="12" Height="12" Fill="#3F3F46" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource strMotionBacklight}" FontSize="11" FontWeight="Bold"/>
-                                    <TextBlock Text="Backlight (DO 4)" FontSize="9" Foreground="#888888"/>
+                                    <TextBlock Text="LC_Hold" FontSize="11" FontWeight="Bold"/>
+                                    <TextBlock Text="DO 4 / Y05" FontSize="9" Foreground="#888888"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

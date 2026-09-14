@@ -432,14 +432,14 @@ namespace BeevisionSolution.Views
             if (ledTriggerLeft != null) ledTriggerLeft.Fill = trigL ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
             if (txtTriggerLeftStatus != null)
             {
-                txtTriggerLeftStatus.Text = trigL ? "PRESSED (ACTIVE)" : "RELEASED (DI 0)";
+                txtTriggerLeftStatus.Text = trigL ? "PRESSED (ACTIVE)" : "RELEASED (DI 1 / X02)";
                 txtTriggerLeftStatus.Foreground = trigL ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             }
 
             if (ledTriggerRight != null) ledTriggerRight.Fill = trigR ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
             if (txtTriggerRightStatus != null)
             {
-                txtTriggerRightStatus.Text = trigR ? "PRESSED (ACTIVE)" : "RELEASED (DI 1)";
+                txtTriggerRightStatus.Text = trigR ? "PRESSED (ACTIVE)" : "RELEASED (DI 2 / X03)";
                 txtTriggerRightStatus.Foreground = trigR ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             }
 
@@ -447,7 +447,7 @@ namespace BeevisionSolution.Views
             if (ledForceReached != null) ledForceReached.Fill = forceReached ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
             if (txtForceStatus != null)
             {
-                txtForceStatus.Text = forceReached ? "Force Status: TARGET FORCE HELD (DI 2)" : "Force Status: STANDBY (DI 2)";
+                txtForceStatus.Text = forceReached ? "Load Cell OK: ACTIVE (DI 10 / X11)" : "Load Cell OK: STANDBY (DI 10 / X11)";
                 txtForceStatus.Foreground = forceReached ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             }
 
@@ -456,14 +456,13 @@ namespace BeevisionSolution.Views
             if (ledDownLimitSensor != null) ledDownLimitSensor.Fill = downLimit ? TileRedBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
             if (ledPartPresentSensor != null) ledPartPresentSensor.Fill = partPresent ? TileBlueBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
 
-            // Tower Light & Backlight DO status
-            bool greenDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.TowerLightGreenDOBit ?? 0));
-            bool redDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.TowerLightRedDOBit ?? 1));
-            bool bLightDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.BacklightDOBit ?? 4));
+            bool brakeDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.BrakeServoDOBit ?? 0));
+            bool resetDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.LoadCellResetDOBit ?? 3));
+            bool holdDO = motion.GetDigitalOutput((short)(motion.Config?.IO?.LoadCellHoldDOBit ?? 4));
 
-            if (ledTowerGreen != null) ledTowerGreen.Fill = greenDO ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
-            if (ledTowerRed != null) ledTowerRed.Fill = redDO ? TileRedBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
-            if (ledBacklight != null) ledBacklight.Fill = (_isLightOn || bLightDO) ? TileYellowBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
+            if (ledTowerGreen != null) ledTowerGreen.Fill = brakeDO ? TileGreenBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
+            if (ledTowerRed != null) ledTowerRed.Fill = resetDO ? TileRedBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
+            if (ledBacklight != null) ledBacklight.Fill = holdDO ? TileYellowBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
         }
     
 
@@ -616,11 +615,7 @@ namespace BeevisionSolution.Views
             {
                 // Khi tắt Servo: Tắt Servo rồi đóng lại phanh cơ (tắt DO)
                 motion.ServoOff(_currentAxis);
-                var pcieIo = IoJobCtrl.GetIOcardCtrl();
-                if (pcieIo != null && pcieIo.IsInit)
-                {
-                    pcieIo.SetPinOutput(MotionSequenceManager.Instance.BrakeDOPin, false);
-                }
+                MotionSequenceManager.Instance.SetDigitalOutput(MotionSequenceManager.Instance.BrakeDOPin, false);
                 Motion_OnLogMessage($"[Manual] Axis {_currentAxis}: Servo OFF & Brake Locked.");
             }
             else
@@ -940,6 +935,15 @@ namespace BeevisionSolution.Views
             Motion_OnLogMessage($"[Test Program] Mock Simulation Mode: {(MotionSequenceManager.Instance.IsTestProgramMode ? "ENABLED" : "DISABLED")}");
         }
 
+        private void ChkForceVisionOk_Changed(object sender, RoutedEventArgs e)
+        {
+            var cfg = MotionSequenceManager.Instance.Motion?.Config;
+            if (cfg == null) return;
+
+            cfg.ForceVisionOk = chkForceVisionOk.IsChecked == true;
+            Motion_OnLogMessage($"[Vision] Force Vision OK override: {(cfg.ForceVisionOk ? "ENABLED" : "DISABLED")}");
+        }
+
         private void CbMockVisionResult_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (cbMockVisionResult?.SelectedItem is ComboBoxItem item)
@@ -1017,6 +1021,8 @@ namespace BeevisionSolution.Views
                     txtMaxVel.Text = axisCfg.MaxVelocity.ToString(CultureInfo.InvariantCulture);
                     txtMaxAcc.Text = axisCfg.DefaultProfile.Acceleration.ToString(CultureInfo.InvariantCulture);
                     txtMaxDec.Text = axisCfg.DefaultProfile.Deceleration.ToString(CultureInfo.InvariantCulture);
+                    txtClampJogSpeed.Text = cfg.ClampJogVelocity.ToString(CultureInfo.InvariantCulture);
+                    chkForceVisionOk.IsChecked = cfg.ForceVisionOk;
 
                     chkEnableSoftLimits.IsChecked = axisCfg.EnableSoftwareLimits;
                     txtSoftLimitPos.Text = axisCfg.SoftwareLimitPositive.ToString(CultureInfo.InvariantCulture);
@@ -1037,12 +1043,13 @@ namespace BeevisionSolution.Views
                         txtIoBitSensorHomeUp.Text = cfg.IO.SensorHomeUpDIBit.ToString();
                         txtIoBitSensorDownLimit.Text = cfg.IO.SensorDownLimitDIBit.ToString();
                         txtIoBitSensorPartPresent.Text = cfg.IO.SensorPartPresentDIBit.ToString();
-                        txtIoBitSystemStop.Text = cfg.IO.SystemStopDIBit.ToString();
-                        txtIoBitCamTrigger.Text = cfg.IO.CameraTriggerDOBit.ToString();
-                        txtIoBitTowerGreen.Text = cfg.IO.TowerLightGreenDOBit.ToString();
-                        txtIoBitTowerRed.Text = cfg.IO.TowerLightRedDOBit.ToString();
-                        txtIoBitTowerBuzzer.Text = cfg.IO.TowerBuzzerDOBit.ToString();
-                        txtIoBitBacklight.Text = cfg.IO.BacklightDOBit.ToString();
+                        txtIoBitSafetyStop.Text = cfg.IO.SystemStopDIBit.ToString();
+                        txtIoBitSystemStop.Text = cfg.IO.BrakeServoDOBit.ToString();
+                        txtIoBitCamTrigger.Text = cfg.IO.Channel1LightTriggerDOBit.ToString();
+                        txtIoBitTowerGreen.Text = cfg.IO.Button1LampDOBit.ToString();
+                        txtIoBitTowerRed.Text = cfg.IO.Button2LampDOBit.ToString();
+                        txtIoBitTowerBuzzer.Text = cfg.IO.LoadCellResetDOBit.ToString();
+                        txtIoBitBacklight.Text = cfg.IO.LoadCellHoldDOBit.ToString();
                     }
                 }
             }
@@ -1076,6 +1083,10 @@ namespace BeevisionSolution.Views
                 double.TryParse(txtMaxDec.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double maxDec);
                 axisCfg.DefaultProfile.Deceleration = maxDec > 0 ? maxDec : 500000;
 
+                double.TryParse(txtClampJogSpeed.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double clampJogSpeed);
+                cfg.ClampJogVelocity = clampJogSpeed > 0 ? clampJogSpeed : 10.0;
+                cfg.ForceVisionOk = chkForceVisionOk.IsChecked == true;
+
                 axisCfg.EnableSoftwareLimits = chkEnableSoftLimits.IsChecked == true;
                 double.TryParse(txtSoftLimitPos.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double softPos);
                 axisCfg.SoftwareLimitPositive = softPos;
@@ -1098,12 +1109,13 @@ namespace BeevisionSolution.Views
                 int.TryParse(txtIoBitSensorHomeUp.Text, out int homeDi); cfg.IO.SensorHomeUpDIBit = homeDi;
                 int.TryParse(txtIoBitSensorDownLimit.Text, out int downDi); cfg.IO.SensorDownLimitDIBit = downDi;
                 int.TryParse(txtIoBitSensorPartPresent.Text, out int partDi); cfg.IO.SensorPartPresentDIBit = partDi;
-                int.TryParse(txtIoBitSystemStop.Text, out int stopDi); cfg.IO.SystemStopDIBit = stopDi;
-                int.TryParse(txtIoBitCamTrigger.Text, out int camDo); cfg.IO.CameraTriggerDOBit = camDo;
-                int.TryParse(txtIoBitTowerGreen.Text, out int grnDo); cfg.IO.TowerLightGreenDOBit = grnDo;
-                int.TryParse(txtIoBitTowerRed.Text, out int redDo); cfg.IO.TowerLightRedDOBit = redDo;
-                int.TryParse(txtIoBitTowerBuzzer.Text, out int buzDo); cfg.IO.TowerBuzzerDOBit = buzDo;
-                int.TryParse(txtIoBitBacklight.Text, out int bLightDo); cfg.IO.BacklightDOBit = bLightDo;
+                int.TryParse(txtIoBitSafetyStop.Text, out int systemStopDi); cfg.IO.SystemStopDIBit = systemStopDi;
+                int.TryParse(txtIoBitSystemStop.Text, out int brakeDo); cfg.IO.BrakeServoDOBit = brakeDo;
+                int.TryParse(txtIoBitCamTrigger.Text, out int lightDo); cfg.IO.Channel1LightTriggerDOBit = lightDo;
+                int.TryParse(txtIoBitTowerGreen.Text, out int btn1LampDo); cfg.IO.Button1LampDOBit = btn1LampDo;
+                int.TryParse(txtIoBitTowerRed.Text, out int btn2LampDo); cfg.IO.Button2LampDOBit = btn2LampDo;
+                int.TryParse(txtIoBitTowerBuzzer.Text, out int resetDo); cfg.IO.LoadCellResetDOBit = resetDo;
+                int.TryParse(txtIoBitBacklight.Text, out int holdDo); cfg.IO.LoadCellHoldDOBit = holdDo;
 
                 SaveConfigToFile(cfg);
                 MessageBox.Show("Advanced Machine Configuration saved successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -1203,18 +1215,18 @@ namespace BeevisionSolution.Views
             // Khởi tạo 12 cổng Digital Inputs (DI 00..11) theo cấu hình máy Nitto Press
             string[] diNames = new string[12]
             {
-                "Left Trigger Button (IDEC Dual-Btn)",
-                "Right Trigger Button (IDEC Dual-Btn)",
-                "Target Force Reached (Bongshin Loadcell)",
-                "Home / Upper Standby Sensor (Misumi MSX)",
-                "Down Limit Safety Sensor (Misumi MSX)",
-                "Part on Jig Sensor (Misumi MSX)",
-                "Emergency Stop / Safety Sensor",
-                "General Digital Input 07 (Spare)",
-                "General Digital Input 08 (Spare)",
-                "General Digital Input 09 (Spare)",
-                "General Digital Input 10 (Spare)",
-                "General Digital Input 11 (Spare)"
+                "X01 (Spare)",
+                "X02 - Btn_01",
+                "X03 - Btn_02",
+                "X04 (Spare)",
+                "X05 (Spare)",
+                "X06 (Spare)",
+                "X07 (Spare)",
+                "X08 (Spare)",
+                "X09 / DI8 (Unused)",
+                "X10 - LC_Low (Unused)",
+                "X11 - Load Cell OK",
+                "X12 - LC_High (Unused)"
             };
 
             for (short i = 0; i < 12; i++)
@@ -1225,22 +1237,22 @@ namespace BeevisionSolution.Views
             // Khởi tạo 16 cổng Digital Outputs (DO 00..15) theo cấu hình máy Nitto Press
             string[] doNames = new string[16]
             {
-                "Tower Light Green (OK/RUN - Qlight)",
-                "Tower Light Red (NG/ALARM - Qlight)",
-                "Tower Buzzer (Alarm Sound)",
-                "Camera Hardware Trigger",
-                "Inspection Backlight (Vision 65MP)",
-                "General Digital Output 05 (Spare)",
-                "General Digital Output 06 (Spare)",
-                "General Digital Output 07 (Spare)",
-                "General Digital Output 08 (Spare)",
-                "General Digital Output 09 (Spare)",
-                "General Digital Output 10 (Spare)",
-                "General Digital Output 11 (Spare)",
-                "General Digital Output 12 (Spare)",
-                "General Digital Output 13 (Spare)",
-                "General Digital Output 14 (Spare)",
-                "Motor Mechanical Brake (Release/Lock)"
+                "Y01 - Brake_Servo",
+                "Y02 - Btn1_Lamp",
+                "Y03 - Btn2_Lamp",
+                "Y04 - LC_Reset",
+                "Y05 - LC_Hold",
+                "Y06 (Spare)",
+                "Y07 (Spare)",
+                "Y08 (Spare)",
+                "Y09 - Ch1_Light_Trigger",
+                "Y10 (Spare)",
+                "Y11 (Spare)",
+                "Y12 (Spare)",
+                "Y13 (Spare)",
+                "Y14 (Spare)",
+                "Y15 (Spare)",
+                "Y16 (Spare)"
             };
 
             for (short i = 0; i < 16; i++)

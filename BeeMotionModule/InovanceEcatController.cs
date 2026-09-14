@@ -992,53 +992,108 @@ namespace BeeMotionModule
             short axis = 0;
             double pos = targetPos > 0 ? targetPos : (_config?.ClampingPosition ?? 80.0);
             double spd = speed > 0 ? speed : (_config?.ClampingVelocity ?? 50.0);
+            double jogSpeed = _config?.ClampJogVelocity > 0 ? _config.ClampJogVelocity : 10.0;
 
-            Log($"[Nitto Motion] Moving press axis down to clamp at {pos:F2} mm (Velocity {spd:F1} mm/s)...");
+            if (GetSystemStopSensor())
+            {
+                Log("[Nitto Motion Error] Clamp command rejected because the system stop sensor is active.");
+                EmergencyStop();
+                return false;
+            }
+
+            Log($"[Nitto Motion] Resetting load cell before clamp (DO {_config.IO.LoadCellResetDOBit}, pulse 200 ms)...");
 
             if (_config.Simulate)
             {
+                await Task.Delay(200, ct);
                 await Task.Delay(250, ct);
                 if (_axisStates.TryGetValue(axis, out var st)) st.ActualPosition = pos;
-                Log("[Nitto Motion Sim] Press axis clamped (Mock force reached OK).");
+                Log($"[Nitto Motion Sim] Reached Clamp Down position and jogged negative at {jogSpeed:F1} mm/s until Load Cell OK.");
                 return true;
             }
 
+            if (!SetDigitalOutput((short)_config.IO.LoadCellResetDOBit, true))
+            {
+                Log("[Nitto Motion Error] Failed to turn ON LC_Reset output.");
+                return false;
+            }
+
+            try
+            {
+                await Task.Delay(200, ct);
+            }
+            finally
+            {
+                SetDigitalOutput((short)_config.IO.LoadCellResetDOBit, false);
+            }
+
+            Log($"[Nitto Motion] Moving press axis to Clamp Down position {pos:F2} mm (Velocity {spd:F1} mm/s)...");
             bool moveOk = MoveAbsolute(axis, pos, spd);
             if (!moveOk) return false;
 
-            var startTime = DateTime.Now;
-            int[] axStatus = new int[1];
-
-            while ((DateTime.Now - startTime).TotalMilliseconds < 15000)
+            if (!await WaitMoveDoneAsync(axis, 15000, ct))
             {
-                if (ct.IsCancellationRequested)
-                {
-                    Stop(axis);
-                    return false;
-                }
-
-                // Check if Loadcell BS-205-35 reached force setpoint
-                if (IsForceTargetReached())
-                {
-                    Stop(axis);
-                    Log("[Nitto Motion] Target clamping force reached from Bongshin Loadcell BS-205-35 -> Axis stopped to hold force.");
-                    return true;
-                }
-
-                ImcApi.IMC_GetAxSts(_cardHandle, axis, axStatus, 1);
-                bool isBusy = (axStatus[0] & (int)ImcApi.AX_BUSY_BIT) != 0;
-                if (!isBusy)
-                {
-                    Log("[Nitto Motion] Press axis reached target clamping position.");
-                    return true;
-                }
-
-                await Task.Delay(10, ct);
+                Log("[Nitto Motion Error] Failed to reach Clamp Down position.");
+                return false;
             }
 
-            Log("[Nitto Motion Error] Clamping timeout.");
-            Stop(axis);
-            return false;
+            if (IsForceTargetReached())
+            {
+                Log("[Nitto Motion] Load Cell OK was already active at Clamp Down position.");
+                return true;
+            }
+
+            Log($"[Nitto Motion] Jogging Axis {axis} in negative direction at {jogSpeed:F1} mm/s until Load Cell OK (DI {_config.IO.ForceReachedDIBit})...");
+            if (!MoveJog(axis, -jogSpeed))
+            {
+                Log("[Nitto Motion Error] Failed to start negative clamp jog.");
+                return false;
+            }
+
+            var startTime = DateTime.Now;
+            try
+            {
+                while ((DateTime.Now - startTime).TotalMilliseconds < 15000)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    if (GetSystemStopSensor())
+                    {
+                        Log("[Nitto Motion Error] Clamp jog stopped because the system stop sensor is active.");
+                        EmergencyStop();
+                        return false;
+                    }
+
+                    if (IsForceTargetReached())
+                    {
+                        Log("[Nitto Motion] Load Cell OK detected on DI10 -> Clamp jog stopped.");
+                        return true;
+                    }
+
+                    var axisState = GetAxisState(axis);
+                    var axisConfig = GetAxisConfig(axis);
+                    if (axisState == null || axisState.IsError || axisState.EmergencyStop)
+                    {
+                        Log("[Nitto Motion Error] Clamp jog stopped because the axis entered an error or emergency state.");
+                        return false;
+                    }
+
+                    if (axisConfig.EnableSoftwareLimits && axisState.ActualPosition <= axisConfig.SoftwareLimitNegative)
+                    {
+                        Log($"[Nitto Motion Error] Clamp jog reached negative software limit {axisConfig.SoftwareLimitNegative:F2} mm before Load Cell OK.");
+                        return false;
+                    }
+
+                    await Task.Delay(10, ct);
+                }
+
+                Log("[Nitto Motion Error] Clamp jog timeout while waiting for Load Cell OK on DI10.");
+                return false;
+            }
+            finally
+            {
+                Stop(axis);
+            }
         }
 
         public async Task<bool> RetractUpAsync(double speed = 0, CancellationToken ct = default)
@@ -1046,6 +1101,13 @@ namespace BeeMotionModule
             short axis = 0;
             double pos = _config?.StandbyPosition ?? 0.0;
             double spd = speed > 0 ? speed : (_config?.RetractVelocity ?? 80.0);
+
+            if (GetSystemStopSensor())
+            {
+                Log("[Nitto Motion Error] Retract command rejected because the system stop sensor is active.");
+                EmergencyStop();
+                return false;
+            }
 
             Log($"[Nitto Motion] Retracting press axis to standby position {pos:F2} mm (Velocity {spd:F1} mm/s)...");
 
@@ -1102,7 +1164,8 @@ namespace BeeMotionModule
         public bool GetSystemStopSensor()
         {
             if (_config.Simulate) return false;
-            short diPin = (short)(_config?.IO?.SystemStopDIBit ?? 6);
+            short diPin = (short)(_config?.IO?.SystemStopDIBit ?? -1);
+            if (diPin < 0) return false;
             return GetDigitalInput(diPin);
         }
 
