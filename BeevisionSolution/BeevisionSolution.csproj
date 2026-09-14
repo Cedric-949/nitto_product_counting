@@ -503,6 +503,12 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\ThirdParty\IRaypleDll\MVFGSDK_Net.dll</HintPath>
     </Reference>
+    <Reference Include="IKapBoardDotNet2, Version=2.0.0.0, Culture=neutral, PublicKeyToken=af3fc256a5275eb5, processorArchitecture=MSIL">
+      <HintPath>..\ThirdParty\ITEK\IKapBoardDotNet2.dll</HintPath>
+    </Reference>
+    <Reference Include="IKapCDotNet2, Version=1.1.0.1, Culture=neutral, PublicKeyToken=700817f6992dd69b, processorArchitecture=MSIL">
+      <HintPath>..\ThirdParty\ITEK\IKapCDotNet2.dll</HintPath>
+    </Reference>
     <Reference Include="MVSDK_Net">
       <HintPath>..\ThirdParty\IRaypleDll\MVSDK_Net.dll</HintPath>
     </Reference>
@@ -647,6 +653,7 @@
     <Compile Include="Converters\StatusToBackgroundConverter.cs" />
     <Compile Include="Converters\ZoomToScaleConverter.cs" />
     <Compile Include="Jobs\CameraHandlers\IRaypleLinescanHandler.cs" />
+    <Compile Include="Jobs\CameraHandlers\ItekAreaScanHandler.cs" />
     <Compile Include="Jobs\CameraHandlers\WebcamHandler.cs" />
     <Compile Include="Jobs\IoJobCtrl.cs" />
     <Compile Include="Jobs\IOJobs.cs" />

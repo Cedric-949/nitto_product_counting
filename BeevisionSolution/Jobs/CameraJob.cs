@@ -36,7 +36,7 @@ namespace BeevisionSolution.Models
         [JsonIgnore]
         public object LastValidImage { get; internal set; } = null;
 
-        public int CamType { get; set; } = 0;//0 means using cam from vpp job, 1, 2: iRayple linescan CameraLink, 3: basler coaxEpress, 4: webcam
+        public int CamType { get; set; } = 0;//0: VPP, 1/2: IRayple linescan, 3: Basler CXP, 4: webcam, 5: ITEK area scan
         public uint BoardNo { get; set; } = 0;//No of framegrabber, use in case CamType = 1
         public int CamLSNo { get; set; } = 0;//No of Linescan camera
         public uint CamLSTimeOut { get; set; } = 1000;//milisecond, time out for get a single frame
@@ -48,6 +48,11 @@ namespace BeevisionSolution.Models
         public string CardIrayCfgPath { get; set; } = "";
         /// <summary>Linescan camera .mvcfg → load qua CamDev (vd. camkkk.mvcfg).</summary>
         public string CamIrayCfgPath { get; set; } = "";
+        public uint ItekDeviceIndex { get; set; } = 0;
+        public string ItekSerialNumber { get; set; } = "";
+        public int ItekGrabTimeoutMs { get; set; } = 5000;
+        public int ItekBufferCount { get; set; } = 2;
+        public string ItekBoardConfigPath { get; set; } = "";
         public bool IsLightTrigger { get; set; }
         public bool UseCameraDmCode { get; set; } = false;
         public string dmCode { get; set; } = "";
@@ -78,6 +83,7 @@ namespace BeevisionSolution.Models
         }
 
         public bool IsIraypleLinescan() => CamType == 1 || CamType == 2;
+        public bool IsItekAreaScan() => CamType == 5;
 
         private ICameraHandler CreateHandler()
         {
@@ -86,6 +92,8 @@ namespace BeevisionSolution.Models
                 case 1:
                 case 2:
                     return new IRaypleLinescanHandler(this);
+                case 5:
+                    return new ItekAreaScanHandler(this);
                 //case 4:
                 //    return new WebcamHandler(this);
                 default:
@@ -232,9 +240,15 @@ namespace BeevisionSolution.Models
             _handler?.Close();
         }
 
-        ~CameraJob()
+        public override void Dispose()
         {
             _handler?.Close();
+            _handler = null;
+            base.Dispose();
+        }
+
+        ~CameraJob()
+        {
             Dispose();
         }
     }
