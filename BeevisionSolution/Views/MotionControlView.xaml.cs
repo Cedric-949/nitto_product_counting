@@ -102,7 +102,6 @@ namespace BeevisionSolution.Views
         private readonly Button btnAutoMode = null;
         private readonly Button btnManualMode = null;
         private readonly TextBlock txtModeStatus = null;
-        private readonly Button btnHome = null;
         private readonly Button btnClampDown = null;
         private readonly Button btnRetractUp = null;
 
@@ -475,19 +474,90 @@ namespace BeevisionSolution.Views
             MotionSequenceManager.Instance.StopCycle();
         }
 
-        private async void BtnHome_Click(object sender, RoutedEventArgs e)
+        private async void BtnGoHome_Click(object sender, RoutedEventArgs e)
         {
             var motion = MotionSequenceManager.Instance.Motion;
             if (motion == null) return;
 
-            if (btnHome != null) btnHome.IsEnabled = false;
+            var sts = motion.GetAxisState(_currentAxis);
+            if (sts == null || !sts.IsServoOn)
+            {
+                Motion_OnLogMessage($"[Manual Warn] Axis {_currentAxis}: Cannot Move to Home because Servo is OFF. Please Turn Servo ON first.");
+                return;
+            }
+
+            if (btnGoHome != null) btnGoHome.IsEnabled = false;
             try
             {
-                await motion.HomeAsync(_currentAxis);
+                double targetPos = motion.Config?.StandbyPosition ?? 0.0;
+                double speed = motion.Config?.RetractVelocity ?? 50.0;
+                if (speed <= 0) speed = 50.0;
+
+                Motion_OnLogMessage($"[Manual] Axis {_currentAxis}: Moving to Home position ({targetPos:F3} mm) at {speed:F1} mm/s...");
+                bool ok = motion.MoveAbsolute(_currentAxis, targetPos, speed);
+                if (ok)
+                {
+                    await motion.WaitMoveDoneAsync(_currentAxis, 20000);
+                    Motion_OnLogMessage($"[Manual] Axis {_currentAxis} reached Home position ({targetPos:F3} mm).");
+                }
+                else
+                {
+                    Motion_OnLogMessage($"[Manual Warn] Axis {_currentAxis}: Move to Home failed!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Motion_OnLogMessage($"[Manual Exception] Move to Home error: {ex.Message}");
             }
             finally
             {
-                if (btnHome != null) btnHome.IsEnabled = true;
+                if (btnGoHome != null) btnGoHome.IsEnabled = true;
+            }
+        }
+
+        private void BtnSetHome_Click(object sender, RoutedEventArgs e)
+        {
+            var motion = MotionSequenceManager.Instance.Motion;
+            if (motion == null) return;
+
+            bool ok = motion.SetZero(_currentAxis);
+            if (ok)
+            {
+                Motion_OnLogMessage($"[Setting] Axis {_currentAxis}: Current physical position has been SET AS HOME (0.000 mm).");
+                if (txtActualPos != null) txtActualPos.Text = "0.000 mm";
+            }
+            else
+            {
+                Motion_OnLogMessage($"[Setting Error] Axis {_currentAxis}: Set Home (Set Zero) failed!");
+            }
+        }
+
+        private async void BtnRunHoming_Click(object sender, RoutedEventArgs e)
+        {
+            var motion = MotionSequenceManager.Instance.Motion;
+            if (motion == null) return;
+
+            var sts = motion.GetAxisState(_currentAxis);
+            if (sts == null || !sts.IsServoOn)
+            {
+                Motion_OnLogMessage($"[Advanced Warn] Axis {_currentAxis}: Cannot run Homing because Servo is OFF. Please Turn Servo ON first.");
+                return;
+            }
+
+            if (btnRunHoming != null) btnRunHoming.IsEnabled = false;
+            try
+            {
+                Motion_OnLogMessage($"[Advanced] Axis {_currentAxis}: Executing Hardware Homing routine...");
+                bool ok = await motion.HomeAsync(_currentAxis);
+                Motion_OnLogMessage($"[Advanced] Axis {_currentAxis}: Homing routine result: {(ok ? "SUCCESS" : "FAILED")}");
+            }
+            catch (Exception ex)
+            {
+                Motion_OnLogMessage($"[Advanced Exception] Homing routine error: {ex.Message}");
+            }
+            finally
+            {
+                if (btnRunHoming != null) btnRunHoming.IsEnabled = true;
             }
         }
 

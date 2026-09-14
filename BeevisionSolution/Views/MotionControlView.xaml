@@ -439,6 +439,12 @@
                                                 <Button x:Name="btnMoveAbs" Content="{DynamicResource strMotionMoveAbs}" Height="34" Background="#007ACC" FontWeight="Bold" FontSize="12" Margin="0,0,3,0" Click="BtnMoveAbs_Click"/>
                                                 <Button x:Name="btnMoveRel" Content="{DynamicResource strMotionMoveRel}" Height="34" Background="#2D2D30" FontWeight="Bold" FontSize="12" Margin="3,0,0,0" Click="BtnMoveRel_Click"/>
                                             </UniformGrid>
+
+                                            <!-- Home Operations: Go Home & Set Home (Zero) -->
+                                            <UniformGrid Columns="2" Margin="0,4,0,0">
+                                                <Button x:Name="btnGoHome" Content="GO HOME (0 mm)" Height="34" Background="#2E8B57" FontWeight="Bold" FontSize="12" Margin="0,0,3,0" Click="BtnGoHome_Click" ToolTip="Move Axis to Home position (0.000 mm)"/>
+                                                <Button x:Name="btnSetHome" Content="SET HOME (Zero)" Height="34" Background="#D97706" FontWeight="Bold" FontSize="12" Margin="3,0,0,0" Click="BtnSetHome_Click" ToolTip="Set Current Physical Position as Zero/Home (0.000 mm)"/>
+                                            </UniformGrid>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
@@ -640,6 +646,7 @@
                                         <TextBlock Text="Home Offset:" Grid.Column="0"/>
                                         <TextBox x:Name="txtHomeOffset" Text="0" Grid.Column="1"/>
                                     </Grid>
+                                    <Button x:Name="btnRunHoming" Content="RUN HOMING ROUTINE" Background="#4B0082" Height="32" Margin="0,6,0,0" FontWeight="Bold" FontSize="12" Click="BtnRunHoming_Click" ToolTip="Execute hardware homing sequence based on selected method"/>
                                 </StackPanel>
                             </GroupBox>
 

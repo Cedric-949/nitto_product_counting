@@ -427,11 +427,35 @@ namespace BeevisionSolution.ViewComponents
             var motion = MotionSequenceManager.Instance.Motion;
             if (motion == null) return;
 
+            var sts = motion.GetAxisState(_currentAxis);
+            if (sts == null || !sts.IsServoOn)
+            {
+                Motion_OnLogMessage($"[Manual Warn] Axis {_currentAxis}: Cannot Move to Home because Servo is OFF. Please Turn Servo ON first.");
+                return;
+            }
+
             btnHome.IsEnabled = false;
             try
             {
-                Motion_OnLogMessage($"[Manual] Axis {_currentAxis}: Executing Homing sequence...");
-                await motion.HomeAsync(_currentAxis);
+                double targetPos = motion.Config?.StandbyPosition ?? 0.0;
+                double speed = motion.Config?.RetractVelocity ?? 50.0;
+                if (speed <= 0) speed = 50.0;
+
+                Motion_OnLogMessage($"[Manual] Moving Axis {_currentAxis} to Home position ({targetPos:F3} mm) at {speed:F1} mm/s...");
+                bool ok = motion.MoveAbsolute(_currentAxis, targetPos, speed);
+                if (ok)
+                {
+                    await motion.WaitMoveDoneAsync(_currentAxis, 20000);
+                    Motion_OnLogMessage($"[Manual] Axis {_currentAxis} reached Home position ({targetPos:F3} mm).");
+                }
+                else
+                {
+                    Motion_OnLogMessage($"[Manual Warn] Axis {_currentAxis}: Move to Home failed!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Motion_OnLogMessage($"[Manual Exception] Move to Home error: {ex.Message}");
             }
             finally
             {

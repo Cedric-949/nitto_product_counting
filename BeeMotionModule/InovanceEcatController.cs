@@ -135,8 +135,8 @@ namespace BeeMotionModule
                 string drvPath = (!string.IsNullOrEmpty(_config.ConfigDirectory) && File.Exists(Path.Combine(_config.ConfigDirectory, _config.ConfigFileDrv)))
                     ? Path.Combine(_config.ConfigDirectory, _config.ConfigFileDrv)
                     : Path.Combine(baseDir, _config.ConfigFileDrv);
-                Log($"[Motion] Sử dụng SysCfg: '{sysPath}'");
-                Log($"[Motion] Sử dụng DrvCfg: '{drvPath}'");
+                Log($"[Motion] Using SysCfg: '{sysPath}'");
+                Log($"[Motion] Using DrvCfg: '{drvPath}'");
 
                 if (!File.Exists(sysPath)) sysPath = Path.GetFullPath(_config.ConfigFileSys);
                 if (!File.Exists(drvPath)) drvPath = Path.GetFullPath(_config.ConfigFileDrv);
@@ -205,8 +205,32 @@ namespace BeeMotionModule
                 ImcApi.IMC_SetEcatSdo(_cardHandle, axis, 0x6040, 0, new byte[] { 0x0F, 0x00 }, 2, ref abortCode);
                 Thread.Sleep(50);
 
+                // Đảm bảo mức EMG Inversion = 1 trước khi bật servo để tránh cờ dừng khẩn cấp phần cứng 00B9
+                short emgInv = 0;
+                ImcApi.IMC_GetEmgTrigLevelInv(_cardHandle, ref emgInv);
+                if (emgInv != 1)
+                {
+                    ImcApi.IMC_SetEmgTrigLevelInv(_cardHandle, 1);
+                    ImcApi.IMC_ClrAxSts(_cardHandle, axis, 1);
+                }
+
                 // Standard Servo ON confirmation
                 uint res = ImcApi.IMC_AxServoOn(_cardHandle, axis, 1);
+
+                // Tự động khôi phục nếu card Inovance IMC đang giữ cờ Hardware Emergency Stop (0x032000B9)
+                if (res == 0x032000B9)
+                {
+                    Log($"[Motion Warn] Servo ON Axis {axis} encountered 0x032000B9 (Hardware EMG signal active). Attempting auto-recovery...");
+                    ImcApi.IMC_SetEmgTrigLevelInv(_cardHandle, 1);
+                    ImcApi.IMC_ClrAxSts(_cardHandle, axis, 1);
+                    Thread.Sleep(50);
+                    res = ImcApi.IMC_AxServoOn(_cardHandle, axis, 1);
+                    if (res == ImcApi.EXE_SUCCESS)
+                    {
+                        Log($"[Motion] Servo ON Axis {axis} auto-recovered successfully after resetting hardware EMG inversion!");
+                    }
+                }
+
                 Log($"[Motion] Servo ON Axis {axis}: Code 0x{res:X8}");
                 return res == ImcApi.EXE_SUCCESS;
             }
@@ -292,19 +316,38 @@ namespace BeeMotionModule
 
             try
             {
-                // 1. Đảo mức kích hoạt chân Emergency để ngắt cờ EMG phần cứng trên card
-                ImcApi.IMC_SetEmgTrigLevelInv(_cardHandle, 0);
+                // 1. Đảm bảo mức đảo tín hiệu Emergency là 1 (Inverted) để bypass chân EMG phần cứng không dùng
+                short emgInv = 0;
+                ImcApi.IMC_GetEmgTrigLevelInv(_cardHandle, ref emgInv);
+                if (emgInv != 1)
+                {
+                    ImcApi.IMC_SetEmgTrigLevelInv(_cardHandle, 1);
+                    Log($"[Motion] Restored EMG Trigger Level Inversion = 1 (Hardware safety bypass).");
+                }
 
                 // 2. Xóa trạng thái trục trên card (gỡ cờ EMG và ALARM)
                 ImcApi.IMC_ClrAxSts(_cardHandle, axis, 1);
 
                 uint abortCode = 0;
-                // 3. Reset Fault Driver theo chuẩn CiA 402 (0x6040 bit 7 = 1)
+                // 3. Reset Fault Driver theo chuẩn CiA 402: sườn dương bit 7 (0 -> 1)
+                ImcApi.IMC_SetEcatSdo(_cardHandle, axis, 0x6040, 0, new byte[] { 0x00, 0x00 }, 2, ref abortCode);
+                Thread.Sleep(20);
                 ImcApi.IMC_SetEcatSdo(_cardHandle, axis, 0x6040, 0, new byte[] { 0x80, 0x00 }, 2, ref abortCode);
                 Thread.Sleep(50);
 
                 // 4. Đưa Driver về trạng thái Ready to Switch On (Controlword = 0x06)
                 ImcApi.IMC_SetEcatSdo(_cardHandle, axis, 0x6040, 0, new byte[] { 0x06, 0x00 }, 2, ref abortCode);
+                Thread.Sleep(20);
+
+                // 5. Xóa lại trạng thái trục trên card để đảm bảo card cập nhật cờ mới nhất
+                ImcApi.IMC_ClrAxSts(_cardHandle, axis, 1);
+
+                if (_axisStates.TryGetValue(axis, out var stClr))
+                {
+                    stClr.IsError = false;
+                    stClr.ErrorCode = 0;
+                    stClr.EmergencyStop = false;
+                }
 
                 Log($"[Motion] Reset Alarm & Emergency cleared successfully for Axis {axis}.");
                 return true;
@@ -599,7 +642,7 @@ namespace BeeMotionModule
                     }
 
                     ImcApi.IMC_CloseCard(_cardHandle);
-                    Log($"[Motion] Đã đóng card an toàn (Handle: 0x{_cardHandle:X16}).");
+                    Log($"[Motion] Card closed safely (Handle: 0x{_cardHandle:X16}).");
                     _cardHandle = 0;
                 }
             }

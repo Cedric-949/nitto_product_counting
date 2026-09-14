@@ -87,13 +87,13 @@ namespace BeevisionSolution
                     else
                         Info("[EarlyProbe] Skipped - EnableIRaypleEarlyProbe is false in app.json");
 
-                    if (!LicenseManager.HasLicense(CmFirmCode, CmProductCode_AppBase))
-                    {
-                        Info("---------------[ App failed to start due to missing BeeVision license ]---------------");
-                        MessageBox.Show(
-                            $"Valid Beevision license not found (FirmCode={CmFirmCode}, ProductCode={CmProductCode_AppBase})");
-                        return;
-                    }
+                    //if (!LicenseManager.HasLicense(CmFirmCode, CmProductCode_AppBase))
+                    //{
+                    //    Info("---------------[ App failed to start due to missing BeeVision license ]---------------");
+                    //    MessageBox.Show(
+                    //        $"Valid Beevision license not found (FirmCode={CmFirmCode}, ProductCode={CmProductCode_AppBase})");
+                    //    return;
+                    //}
 
                     timeBeginPeriod(1);
                     var application = new App();

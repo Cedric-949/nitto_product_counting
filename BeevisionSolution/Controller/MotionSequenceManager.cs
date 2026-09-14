@@ -468,7 +468,7 @@ namespace BeevisionSolution.Controller
 
         public void StopCycle()
         {
-            Log("[Sequence] Nhận lệnh dừng chu trình...");
+            Log("[Sequence] Stop cycle requested by operator...");
             IsRunning = false;
             _cts?.Cancel();
             Motion.Stop(0);
@@ -477,7 +477,7 @@ namespace BeevisionSolution.Controller
 
         public void EmergencyStop()
         {
-            Log("[Sequence CRITICAL] DỪNG KHẨN CẤP!");
+            Log("[Sequence CRITICAL] EMERGENCY STOP ACTIVATED!");
             IsRunning = false;
             _cts?.Cancel();
             Motion.EmergencyStop();
