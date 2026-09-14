@@ -369,7 +369,7 @@ namespace BeeMotionModule
                     st.ActualPosition = 0;
                     st.ActualPositionPulses = 0;
                     st.CommandPosition = 0;
-                    st.IsHomed = true;
+                    st.IsHomed = false;
                 }
                 Log($"[Motion Simulate] Set Zero Axis {axis}");
                 return true;
@@ -380,6 +380,10 @@ namespace BeeMotionModule
             try
             {
                 uint res = ImcApi.IMC_SetAxCurPos(_cardHandle, axis, 0.0);
+                if (res == ImcApi.EXE_SUCCESS && _axisStates.TryGetValue(axis, out var state))
+                {
+                    state.IsHomed = false;
+                }
                 Log($"[Motion] Set Zero Axis {axis}: Code 0x{res:X8}");
                 return res == ImcApi.EXE_SUCCESS;
             }
@@ -393,58 +397,144 @@ namespace BeeMotionModule
         public async Task<bool> HomeAsync(short axis, CancellationToken ct = default)
         {
             var axisCfg = GetAxisConfig(axis);
-            Log($"[Motion] Starting Homing Axis {axis}...");
+            var homingCfg = axisCfg.Homing ?? new HomingConfig();
+            Log($"[Motion] Starting native Homing Axis {axis}...");
+
+            if (_axisStates.TryGetValue(axis, out var initialState))
+            {
+                // Tọa độ đọc lúc khởi động chỉ là phản hồi encoder; chưa được dùng như gốc máy.
+                initialState.IsHomed = false;
+            }
 
             if (_config.Simulate)
             {
                 await Task.Delay(1000, ct);
-                SetZero(axis);
-                Log($"[Motion Simulate] Homing Axis {axis} completed.");
+                if (_axisStates.TryGetValue(axis, out var simSt))
+                {
+                    simSt.ActualPosition = homingCfg.OffsetPulses / (axisCfg.PulsesPerUnit > 0 ? axisCfg.PulsesPerUnit : 1.0);
+                    simSt.ActualPositionPulses = homingCfg.OffsetPulses;
+                    simSt.CommandPosition = simSt.ActualPosition;
+                    simSt.IsHomed = true;
+                }
+                Log($"[Motion Simulate] Homing Axis {axis} completed with method 28.");
                 return true;
             }
 
             if (_cardHandle == 0) return false;
 
+            bool homingModeActive = false;
             try
             {
-                // CiA 402 Homing Mode: SDO 0x6060 = 6
-                uint abortCode = 0;
-                ImcApi.IMC_SetEcatSdo(_cardHandle, axis, 0x6060, 0, new byte[] { 6 }, 1, ref abortCode);
-                await Task.Delay(50, ct);
-
-                // Start homing: ControlWord 0x6040 bit 4 = 1 (0x1F)
-                ImcApi.IMC_SetEcatSdo(_cardHandle, axis, 0x6040, 0, new byte[] { 0x1F, 0x00 }, 2, ref abortCode);
-
-                var startTime = DateTime.Now;
-                int[] axStatus = new int[1];
-
-                while ((DateTime.Now - startTime).TotalMilliseconds < axisCfg.Homing.TimeoutMs)
+                int[] rawStatus = new int[1];
+                uint statusResult = ImcApi.IMC_GetAxSts(_cardHandle, axis, rawStatus, 1);
+                if (statusResult != ImcApi.EXE_SUCCESS)
                 {
-                    if (ct.IsCancellationRequested)
+                    Log($"[Motion Error] Cannot read Axis {axis} status before Homing: Code 0x{statusResult:X8}.");
+                    return false;
+                }
+
+                if ((rawStatus[0] & (int)ImcApi.AX_SVON_BIT) == 0)
+                {
+                    Log($"[Motion Error] Cannot Home Axis {axis}: Servo is not ON in the card status.");
+                    return false;
+                }
+
+                if ((rawStatus[0] & (int)(ImcApi.AX_ALARM_BIT | ImcApi.AX_EMG_STOP_BIT)) != 0)
+                {
+                    Log($"[Motion Error] Cannot Home Axis {axis}: Alarm or Emergency Stop is active.");
+                    return false;
+                }
+
+                if ((rawStatus[0] & (int)ImcApi.AX_BUSY_BIT) != 0)
+                {
+                    Log($"[Motion Error] Cannot Home Axis {axis}: Axis is already moving.");
+                    return false;
+                }
+
+                const short homeMethod = 28;
+                if (homingCfg.HomeMethod != homeMethod)
+                {
+                    Log($"[Motion] Axis {axis} overrides configured Homing Method {homingCfg.HomeMethod} with production Method 28 (negative Home switch, no Z-index).");
+                }
+
+                var parameters = new ImcApi.THomingPara
+                {
+                    homeMethod = homeMethod,
+                    offset = homingCfg.OffsetPulses,
+                    highVel = ToPositiveUInt32(homingCfg.HighVelocity, 10000),
+                    lowVel = ToPositiveUInt32(homingCfg.LowVelocity, 1000),
+                    acc = ToPositiveUInt32(homingCfg.Acceleration, 100000),
+                    overtime = homingCfg.TimeoutMs > 0 ? homingCfg.TimeoutMs : 30000,
+                    posSrc = 0
+                };
+
+                Log($"[Motion] Axis {axis} Homing parameters: Method={parameters.homeMethod}, Direction=Negative, HomeInput=Drive, HighVel={parameters.highVel} pulse/s, LowVel={parameters.lowVel} pulse/s, Acc={parameters.acc} pulse/s^2, Offset={parameters.offset} pulse, Timeout={parameters.overtime} ms.");
+
+                uint startResult = ImcApi.IMC_StartHoming(_cardHandle, axis, ref parameters);
+                if (startResult != ImcApi.EXE_SUCCESS)
+                {
+                    Log($"[Motion Error] Start Homing Axis {axis} failed: Code 0x{startResult:X8}.");
+                    return false;
+                }
+
+                homingModeActive = true;
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+                while (stopwatch.ElapsedMilliseconds < parameters.overtime)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    short homingStatus = ImcApi.HOME_IN_PROGRESS;
+                    uint homingStatusResult = ImcApi.IMC_GetHomingStatus(_cardHandle, axis, ref homingStatus);
+                    if (homingStatusResult != ImcApi.EXE_SUCCESS)
                     {
-                        Stop(axis);
+                        Log($"[Motion Error] Read Homing status Axis {axis} failed: Code 0x{homingStatusResult:X8}.");
                         return false;
                     }
 
-                    ImcApi.IMC_GetAxSts(_cardHandle, axis, axStatus, 1);
-                    bool isBusy = (axStatus[0] & (int)ImcApi.AX_BUSY_BIT) != 0;
-                    bool isArrive = (axStatus[0] & (int)ImcApi.AX_ARRIVE_BIT) != 0;
-
-                    if (!isBusy || isArrive)
+                    if (homingStatus == ImcApi.HOME_SUCESS)
                     {
-                        SetZero(axis);
-                        // Return to position mode (0x6060 = 8)
-                        ImcApi.IMC_SetEcatSdo(_cardHandle, axis, 0x6060, 0, new byte[] { 8 }, 1, ref abortCode);
-                        Log($"[Motion] Homing Axis {axis} completed successfully.");
-                        if (_axisStates.TryGetValue(axis, out var st)) st.IsHomed = true;
+                        uint finishResult = ImcApi.IMC_FinishHoming(_cardHandle, axis);
+                        if (finishResult != ImcApi.EXE_SUCCESS)
+                        {
+                            Log($"[Motion Error] Finish Homing Axis {axis} failed: Code 0x{finishResult:X8}.");
+                            return false;
+                        }
+                        homingModeActive = false;
+
+                        if (_axisStates.TryGetValue(axis, out var finalState))
+                        {
+                            finalState.IsHomed = true;
+                        }
+
+                        Log($"[Motion] Homing Axis {axis} completed successfully with native status {homingStatus}.");
                         return true;
                     }
 
-                    await Task.Delay(50, ct);
+                    if (homingStatus != ImcApi.HOME_IN_PROGRESS &&
+                        !(homingStatus == ImcApi.HOME_INTERRUPTED_OR_NOT_START && stopwatch.ElapsedMilliseconds < 300))
+                    {
+                        Log($"[Motion Error] Homing Axis {axis} failed with native status {homingStatus}.");
+                        return false;
+                    }
+
+                    statusResult = ImcApi.IMC_GetAxSts(_cardHandle, axis, rawStatus, 1);
+                    if (statusResult != ImcApi.EXE_SUCCESS ||
+                        (rawStatus[0] & (int)(ImcApi.AX_ALARM_BIT | ImcApi.AX_EMG_STOP_BIT)) != 0)
+                    {
+                        Log($"[Motion Error] Homing Axis {axis} stopped because the axis entered an alarm or emergency state.");
+                        return false;
+                    }
+
+                    await Task.Delay(20, ct);
                 }
 
-                Log($"[Motion Error] Homing Axis {axis} TIMEOUT.");
-                Stop(axis);
+                Log($"[Motion Error] Homing Axis {axis} timed out after {parameters.overtime} ms.");
+                return false;
+            }
+            catch (OperationCanceledException)
+            {
+                Log($"[Motion] Homing Axis {axis} was cancelled.");
                 return false;
             }
             catch (Exception ex)
@@ -452,6 +542,30 @@ namespace BeeMotionModule
                 Log($"[Motion Exception] Homing Axis {axis} error: {ex.Message}");
                 return false;
             }
+            finally
+            {
+                if (homingModeActive)
+                {
+                    uint stopResult = ImcApi.IMC_StopHoming(_cardHandle, axis, 0);
+                    uint finishResult = ImcApi.IMC_FinishHoming(_cardHandle, axis);
+                    Log($"[Motion] Homing Axis {axis} cleanup: Stop=0x{stopResult:X8}, Finish=0x{finishResult:X8}.");
+                }
+            }
+        }
+
+        private static uint ToPositiveUInt32(double value, uint fallback)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
+            {
+                return fallback;
+            }
+
+            if (value >= uint.MaxValue)
+            {
+                return uint.MaxValue;
+            }
+
+            return (uint)Math.Round(value);
         }
 
         public bool MoveJog(short axis, double velocityUnits)
@@ -475,6 +589,10 @@ namespace BeeMotionModule
 
                 ImcApi.IMC_UpdateJogMvPara(_cardHandle, axis, velPulses, acc, dec);
                 uint res = ImcApi.IMC_StartJogMove(_cardHandle, axis, velPulses);
+                if (res != ImcApi.EXE_SUCCESS)
+                {
+                    Log($"[Motion Warn] StartJogMove Axis {axis} at vel {velPulses:F1} returned code 0x{res:X8}");
+                }
                 return res == ImcApi.EXE_SUCCESS;
             }
             catch (Exception ex)
@@ -487,6 +605,13 @@ namespace BeeMotionModule
         public bool MoveAbsolute(short axis, double targetPosUnits, double velocity = 0, double acc = 0, double dec = 0)
         {
             var axisCfg = GetAxisConfig(axis);
+
+            AxisState axisState = GetAxisState(axis);
+            if (axisState == null || !axisState.IsHomed)
+            {
+                Log($"[Motion Safety] Absolute move blocked on Axis {axis}: Hardware homing has not completed.");
+                return false;
+            }
             
             // Check software limits
             if (axisCfg.EnableSoftwareLimits)
@@ -524,6 +649,10 @@ namespace BeeMotionModule
             {
                 ImcApi.IMC_UpdatePtpMvPara(_cardHandle, axis, velPulses, accPulses, decPulses);
                 uint res = ImcApi.IMC_StartPtpMove(_cardHandle, axis, targetPulses, 0); // 0 = Absolute
+                if (res != ImcApi.EXE_SUCCESS)
+                {
+                    Log($"[Motion Warn] StartPtpMove Axis {axis} to {targetPosUnits:F3} returned code 0x{res:X8}");
+                }
                 return res == ImcApi.EXE_SUCCESS;
             }
             catch (Exception ex)
@@ -701,6 +830,23 @@ namespace BeeMotionModule
                                 state.LimitPositive = (rawSts[0] & (int)ImcApi.AX_POSLMT_BIT) != 0;
                                 state.LimitNegative = (rawSts[0] & (int)ImcApi.AX_NEGLMT_BIT) != 0;
                                 state.EmergencyStop = (rawSts[0] & (int)ImcApi.AX_EMG_STOP_BIT) != 0;
+                                state.HomeSensor = (rawSts[0] & (int)ImcApi.AX_HM_BIT) != 0;
+
+                                // Đọc ngõ vào số trực tiếp từ Driver qua EtherCAT (CiA 402 Object 0x60FD):
+                                // Bit 0: Negative limit switch (NOT), Bit 1: Positive limit switch (POT), Bit 2: Home switch (ORG)
+                                int ecatDi = 0;
+                                uint diRes = ImcApi.IMC_GetAxEcatDigitalInput(_cardHandle, ax, ref ecatDi);
+                                if (diRes == ImcApi.EXE_SUCCESS)
+                                {
+                                    if ((ecatDi & 0x01) != 0) state.LimitNegative = true;
+                                    if ((ecatDi & 0x02) != 0) state.LimitPositive = true;
+                                    state.HomeSensor = state.HomeSensor || ((ecatDi & 0x04) != 0) || IsHomeUpSensorActive();
+                                }
+                                else
+                                {
+                                    // Fallback nếu drive không hỗ trợ 0x60FD hoặc dùng cảm biến gắn ngoài
+                                    state.HomeSensor = state.HomeSensor || IsHomeUpSensorActive();
+                                }
 
                                 OnAxisStateUpdated?.Invoke(ax, state);
                             }
@@ -714,6 +860,7 @@ namespace BeeMotionModule
                             {
                                 state.IsInPosition = true;
                                 state.IsBusy = false;
+                                state.HomeSensor = Math.Abs(state.ActualPosition) < 0.5;
                                 OnAxisStateUpdated?.Invoke(axisCfg.AxisIndex, state);
                             }
                         }

@@ -216,6 +216,28 @@
                             <TextBlock x:Name="txtMasterStatus" Text="OP (6)" FontWeight="Bold" Foreground="#00FF7F" FontSize="13"/>
                         </StackPanel>
                     </Border>
+
+                    <!-- Hardware Limit & Home Status Indicators (Đấu từ Driver/Motion) -->
+                    <StackPanel Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center">
+                        <Border x:Name="tileLmNeg" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Padding="8,4" Margin="2,0" ToolTip="Negative Hardware Limit Sensor (Limit - / NOT)">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse x:Name="ledLmNeg" Width="10" Height="10" Fill="#555555" Margin="0,0,5,0"/>
+                                <TextBlock Text="LM-" FontWeight="Bold" FontSize="12" Foreground="#E1E1E1"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="tileHome" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Padding="8,4" Margin="2,0" ToolTip="Home Physical Sensor (ORG / Standby Cữ Trên)">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse x:Name="ledHome" Width="10" Height="10" Fill="#555555" Margin="0,0,5,0"/>
+                                <TextBlock Text="HOME" FontWeight="Bold" FontSize="12" Foreground="#E1E1E1"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="tileLmPos" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1.5" CornerRadius="4" Padding="8,4" Margin="2,0" ToolTip="Positive Hardware Limit Sensor (Limit + / POT)">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse x:Name="ledLmPos" Width="10" Height="10" Fill="#555555" Margin="0,0,5,0"/>
+                                <TextBlock Text="LM+" FontWeight="Bold" FontSize="12" Foreground="#E1E1E1"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
                 <!-- Quick Servo ON/OFF & Emergency Stop -->
                 <StackPanel Orientation="Horizontal" Grid.Column="2" VerticalAlignment="Center">
@@ -412,7 +434,7 @@
                                             
                                             <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center" Margin="8,0">
                                                 <TextBlock Text="Speed (mm/s)" FontSize="10" Foreground="#888888" HorizontalAlignment="Center"/>
-                                                <TextBox x:Name="txtJogSpeed" Text="50" Width="60" Height="26" FontWeight="Bold" TextAlignment="Center" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                <TextBox x:Name="txtJogSpeed" Text="10" Width="60" Height="26" FontWeight="Bold" TextAlignment="Center" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                                             </StackPanel>
                                             
                                             <Button x:Name="btnJogPos" Grid.Column="2" Content="JOG + ▶" Height="36" Background="#2D2D30" FontSize="13" FontWeight="Bold" PreviewMouseDown="BtnJogPos_PreviewMouseDown" PreviewMouseUp="BtnJogPos_PreviewMouseUp"/>
@@ -615,11 +637,8 @@
                                             <ColumnDefinition Width="110"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Homing Method:" Grid.Column="0"/>
-                                        <ComboBox x:Name="cboHomingMode" Grid.Column="1" SelectedIndex="3">
-                                            <ComboBoxItem Content="Direct (0)"/>
-                                            <ComboBoxItem Content="Negative Limit (1)"/>
-                                            <ComboBoxItem Content="Positive Limit (2)"/>
-                                            <ComboBoxItem Content="Home Sensor (33)"/>
+                                        <ComboBox x:Name="cboHomingMode" Grid.Column="1" SelectedIndex="0">
+                                            <ComboBoxItem Content="Home Sensor Negative (28)"/>
                                         </ComboBox>
                                     </Grid>
                                     <Grid Margin="0,3">

@@ -60,9 +60,6 @@ namespace BeevisionSolution.Views
         #region Fallback Controls (Migrated to MotionMainDashboardView)
         private readonly Border tileSvOn = null;
         private readonly Border tileInp = null;
-        private readonly Border tileHome = null;
-        private readonly Border tileLmPos = null;
-        private readonly Border tileLmNeg = null;
         private readonly Border tileAlm = null;
         private readonly Border tileEmg = null;
         private readonly Border tileBusy = null;
@@ -210,9 +207,37 @@ namespace BeevisionSolution.Views
                 // Update Status Matrix Tiles
                 if (tileSvOn != null) tileSvOn.Background = state.IsServoOn ? TileGreenBrush : TileOffBrush;
                 if (tileInp != null) tileInp.Background = state.IsInPosition ? TileBlueBrush : TileOffBrush;
-                if (tileHome != null) tileHome.Background = state.IsHomed ? TileGreenBrush : TileOffBrush;
-                if (tileLmPos != null) tileLmPos.Background = state.LimitPositive ? TileRedBrush : TileOffBrush;
-                if (tileLmNeg != null) tileLmNeg.Background = state.LimitNegative ? TileRedBrush : TileOffBrush;
+
+                if (tileHome != null)
+                {
+                    tileHome.Background = state.HomeSensor ? TileGreenBrush : TileOffBrush;
+                    tileHome.BorderBrush = state.HomeSensor ? TileGreenBrush : (state.IsHomed ? TileBlueBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46)));
+                }
+                if (ledHome != null)
+                {
+                    ledHome.Fill = state.HomeSensor ? TileGreenBrush : (state.IsHomed ? TileBlueBrush : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)));
+                }
+
+                if (tileLmPos != null)
+                {
+                    tileLmPos.Background = state.LimitPositive ? TileRedBrush : TileOffBrush;
+                    tileLmPos.BorderBrush = state.LimitPositive ? TileRedBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
+                }
+                if (ledLmPos != null)
+                {
+                    ledLmPos.Fill = state.LimitPositive ? TileRedBrush : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+                }
+
+                if (tileLmNeg != null)
+                {
+                    tileLmNeg.Background = state.LimitNegative ? TileRedBrush : TileOffBrush;
+                    tileLmNeg.BorderBrush = state.LimitNegative ? TileRedBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46));
+                }
+                if (ledLmNeg != null)
+                {
+                    ledLmNeg.Fill = state.LimitNegative ? TileRedBrush : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+                }
+
                 if (tileAlm != null) tileAlm.Background = state.IsError ? TileRedBrush : TileOffBrush;
                 if (tileEmg != null) tileEmg.Background = state.EmergencyStop ? TileRedBrush : TileOffBrush;
                 if (tileBusy != null) tileBusy.Background = state.IsBusy ? TileYellowBrush : TileOffBrush;
@@ -523,7 +548,7 @@ namespace BeevisionSolution.Views
             bool ok = motion.SetZero(_currentAxis);
             if (ok)
             {
-                Motion_OnLogMessage($"[Setting] Axis {_currentAxis}: Current physical position has been SET AS HOME (0.000 mm).");
+                Motion_OnLogMessage($"[Setting] Axis {_currentAxis}: Current coordinate set to 0.000 mm for this session. Axis is not hardware-homed.");
                 if (txtActualPos != null) txtActualPos.Text = "0.000 mm";
             }
             else
@@ -644,9 +669,32 @@ namespace BeevisionSolution.Views
             var motion = MotionSequenceManager.Instance.Motion;
             if (motion == null) return;
 
+            var sts = motion.GetAxisState(_currentAxis);
+            if (sts != null)
+            {
+                if (!sts.IsServoOn)
+                {
+                    Motion_OnLogMessage($"[Manual Warn] Axis {_currentAxis}: Cannot JOG because Servo is OFF. Please Turn Servo ON first.");
+                    return;
+                }
+
+                // Cảnh báo nếu bấm hướng tiếp tục đâm vào Limit cứng đang chạm
+                if (sts.LimitNegative && direction < 0)
+                {
+                    Motion_OnLogMessage($"[Manual Block] Axis {_currentAxis} is hitting LIMIT - (Down)! Negative move blocked by hardware. Use JOG + (UP) to move away.");
+                    return;
+                }
+                if (sts.LimitPositive && direction > 0)
+                {
+                    Motion_OnLogMessage($"[Manual Block] Axis {_currentAxis} is hitting LIMIT + (Up)! Positive move blocked by hardware. Use JOG - (Down) to move away.");
+                    return;
+                }
+
+            }
+
             if (!double.TryParse(txtJogSpeed.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double speed) || speed <= 0)
             {
-                speed = 50;
+                speed = 10;
             }
 
             if (rbJogStep.IsChecked == true)
@@ -662,8 +710,7 @@ namespace BeevisionSolution.Views
             }
             else
             {
-                double stepDist = 1.0;
-                Motion_OnLogMessage($"[Manual] Press JOG {(direction > 0 ? "+ (UP)" : "- (Down)")} {stepDist} mm | Speed: {speed} mm/s (Axis {_currentAxis})");
+                Motion_OnLogMessage($"[Manual] Press JOG {(direction > 0 ? "+ (UP)" : "- (Down)")} Continuous | Speed: {speed} mm/s (Axis {_currentAxis})");
                 motion.MoveJog(_currentAxis, direction * speed);
             }
         }
@@ -684,7 +731,7 @@ namespace BeevisionSolution.Views
             if (double.TryParse(txtTargetPos.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double targetPos))
             {
                 double.TryParse(txtJogSpeed.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double speed);
-                if (speed <= 0) speed = 50;
+                if (speed <= 0) speed = 10;
                 Motion_OnLogMessage($"[Manual] Press ABS MOVE -> Move to Abs Pos: {targetPos:F3} mm | Speed: {speed} mm/s (Axis {_currentAxis})");
                 motion.MoveAbsolute(_currentAxis, targetPos, speed);
             }
@@ -698,7 +745,7 @@ namespace BeevisionSolution.Views
             if (double.TryParse(txtTargetPos.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double dist))
             {
                 double.TryParse(txtJogSpeed.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double speed);
-                if (speed <= 0) speed = 50;
+                if (speed <= 0) speed = 10;
                 Motion_OnLogMessage($"[Manual] Press REL MOVE -> Move relative: {dist:F3} mm | Speed: {speed} mm/s (Axis {_currentAxis})");
                 motion.MoveRelative(_currentAxis, dist, speed);
             }
@@ -975,7 +1022,7 @@ namespace BeevisionSolution.Views
                     txtSoftLimitPos.Text = axisCfg.SoftwareLimitPositive.ToString(CultureInfo.InvariantCulture);
                     txtSoftLimitNeg.Text = axisCfg.SoftwareLimitNegative.ToString(CultureInfo.InvariantCulture);
 
-                    cboHomingMode.SelectedIndex = axisCfg.Homing.HomeMethod >= 0 && axisCfg.Homing.HomeMethod <= 3 ? axisCfg.Homing.HomeMethod : 0;
+                    cboHomingMode.SelectedIndex = 0;
                     txtHomeHighSpeed.Text = axisCfg.Homing.HighVelocity.ToString(CultureInfo.InvariantCulture);
                     txtHomeLowSpeed.Text = axisCfg.Homing.LowVelocity.ToString(CultureInfo.InvariantCulture);
                     txtHomeOffset.Text = axisCfg.Homing.OffsetPulses.ToString(CultureInfo.InvariantCulture);
@@ -1035,7 +1082,7 @@ namespace BeevisionSolution.Views
                 double.TryParse(txtSoftLimitNeg.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double softNeg);
                 axisCfg.SoftwareLimitNegative = softNeg;
 
-                axisCfg.Homing.HomeMethod = (short)Math.Max(0, cboHomingMode.SelectedIndex);
+                axisCfg.Homing.HomeMethod = 28;
                 double.TryParse(txtHomeHighSpeed.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double hSpd);
                 axisCfg.Homing.HighVelocity = hSpd > 0 ? hSpd : 5000;
                 double.TryParse(txtHomeLowSpeed.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double lSpd);

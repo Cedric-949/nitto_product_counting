@@ -185,22 +185,51 @@ namespace BeevisionSolution.Controller
 
                 Log($"[Servo Sequence] Step 3: Turning Servo ON for Axis {axis}...");
                 bool svOk = Motion.ServoOn(axis);
-                if (svOk)
+                if (!svOk)
                 {
-                    Log($"[Servo Sequence] >>> Axis {axis}: Servo ON successfully!");
-                    return true;
-                }
-                else
-                {
-                    Log($"[Servo Sequence Error] Axis {axis}: Servo ON failed!");
+                    Log($"[Servo Sequence Error] Axis {axis}: Servo ON command failed!");
                     return false;
                 }
+
+                Log($"[Servo Sequence] Step 4: Waiting for Axis {axis} Servo ON status...");
+                if (await WaitForServoOnAsync(axis, 2000, ct))
+                {
+                    Log($"[Servo Sequence] >>> Axis {axis}: Servo ON status confirmed!");
+                    return true;
+                }
+
+                Log($"[Servo Sequence Error] Axis {axis}: Servo ON status was not confirmed within 2000 ms!");
+                return false;
             }
             catch (Exception ex)
             {
                 Log($"[Servo Sequence Exception] Axis {axis}: {ex.Message}");
                 return false;
             }
+        }
+
+        private async Task<bool> WaitForServoOnAsync(short axis, int timeoutMs, CancellationToken ct)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            while (stopwatch.ElapsedMilliseconds < timeoutMs)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                AxisState state = Motion.GetAxisState(axis);
+                if (state != null && state.IsServoOn)
+                {
+                    return true;
+                }
+
+                if (state != null && (state.IsError || state.EmergencyStop))
+                {
+                    return false;
+                }
+
+                await Task.Delay(20, ct);
+            }
+
+            return false;
         }
 
         public async Task<bool> StartCycleAsync(bool continuous = false, Func<int, Task<bool>> onVisionJobTrigger = null)

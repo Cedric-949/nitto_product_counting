@@ -478,18 +478,18 @@ namespace BeevisionSolution.Views
                         Info("[Motion] Axis {0}: Reset Error & Servo ON -> {1}", i, svOk ? "Done" : "Failed");
                     }
                     
-                    // Tự động về gốc
-                    for(short i = 0;i < totalAxes;i++)
+                    // Tự động về gốc (Physical Homing to Home Sensor)
+                    for (short i = 0; i < totalAxes; i++)
                     {
-                        Info($"[Motion] Auto Homing Axis{0}", i);
+                        Info($"[Motion] Auto Homing Axis {i}...");
                         bool homeOk = await motion.HomeAsync(i);
-                        if(homeOk)
+                        if (homeOk)
                         {
-                            Info($"[Motion] Axis{0}: Auto Home Done.");
+                            Info($"[Motion] Axis {i}: Auto Home Done.");
                         }
                         else
                         {
-                            Bug($"[Motion Alarm]: Axis{0}Failed - Home error or Timeout", i);
+                            Bug($"[Motion Alarm]: Axis {i} Failed - Home error or Timeout");
                         }    
                     }    
                     Info("[Motion] Manual Move Ready.");

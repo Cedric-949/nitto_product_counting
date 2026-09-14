@@ -134,9 +134,9 @@ namespace Inovance.InoMotionCotrollerShop.InoServiceContract.EtherCATConfigApi
         {
             public Int16 homeMethod; 			// 回原点方法
             public Int32 offset; 				// 回原点后的零点偏执 pulse
-            public UInt32 highVel; 			// 高速搜索减速点速度 pulse/ms
-            public UInt32 lowVel; 				// 搜索原点低 pulse/ms
-            public UInt32 acc; 				// 加速度 pulse/ms^2
+            public UInt32 highVel; 			// 高速搜索减速点速度 pulse/s
+            public UInt32 lowVel; 				// 搜索原点低 pulse/s
+            public UInt32 acc; 				// 加速度 pulse/s^2
             public UInt32 overtime; 			// 超时时间 ms
             public Int16 posSrc; 				// 仅对端子板轴回零有效，ECAT 轴无效
         };
@@ -1282,6 +1282,7 @@ namespace Inovance.InoMotionCotrollerShop.InoServiceContract.EtherCATConfigApi
         public const uint AX_ERRPOS_BIT = (0x00000100);	// 轴位置误差越限标志
         public const uint AX_EMG_STOP_BIT = (0x00000200);		// 运动急停标志
         public const uint AX_ECAT_BIT = (0x00000400);		// 总线轴标志
+        public const uint AX_HM_BIT = (0x00002000);          // 原点信号状态（HOME）
 
         [DllImport(EtherCATConfigApiDllName, EntryPoint = "IMC_GetAxSts", ExactSpelling = false, CallingConvention = CallingConvention.Cdecl)]
         public static extern UInt32 IMC_GetAxSts(HANDLETYPE cardHandle, Int16 axNo, Int32[] pAxSts, Int16 count = 1);
