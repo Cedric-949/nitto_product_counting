@@ -86,7 +86,7 @@ $clampMethod = $controller.Substring($clampStart, $clampEnd - $clampStart)
 Assert-Contains $clampMethod 'LoadCellResetDOBit' 'Clamp must pulse the mapped LC_Reset output.'
 Assert-Contains $clampMethod 'Task.Delay(200, ct)' 'LC_Reset pulse must remain ON for 200 ms.'
 Assert-Contains $clampMethod 'WaitMoveDoneAsync' 'Clamp must finish the absolute positioning move before jog.'
-Assert-Contains $clampMethod 'MoveJog(axis, -jogSpeed)' 'Clamp must jog in the negative direction.'
+Assert-Contains $clampMethod 'MoveJog(axis, jogSpeed)' 'Clamp must jog in the positive direction.'
 Assert-Contains $clampMethod 'IsForceTargetReached()' 'Clamp jog must stop on DI10 Load Cell OK.'
 Assert-Contains $clampMethod 'finally' 'Clamp must stop the axis even when cancelled or faulted.'
 

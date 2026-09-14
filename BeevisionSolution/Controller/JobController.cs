@@ -1187,25 +1187,186 @@ namespace BeevisionSolution.Controller
 
         /// <summary>
         /// Runs a Vision Job by its 0-based index/ID in the job list and returns whether inspection passed (OK).
+        /// Luồng thực thi viết tương tự RunInspectionByIO, lấy số lượng từ listDouble của SetOutPutData.
         /// </summary>
         public static async Task<bool> RunJobByIdAsync(int jobId)
         {
-            var jobs = GetAllJobs(false);
-            if (jobs == null || jobId < 0 || jobId >= jobs.Count)
+            return await Task.Run(() =>
             {
-                Bug($"[JobController] Job ID {jobId} not found in listJobs (Total jobs: {jobs?.Count ?? 0})");
-                return false;
-            }
+                List<object> listResults = new List<object>();
+                CameraJob inspectionCameraJob = null;
+                listResults.Clear();
 
-            var targetJob = jobs[jobId];
-            if (targetJob == null) return false;
+                var sw = Stopwatch.StartNew();
+                bool isOk = false;
 
-            Info($"[JobController] Executing Job ID {jobId} ('{targetJob.Name}')...");
-            bool runSuccess = await targetJob.RunToolAsync();
-            bool isOk = (targetJob.RunStatus == CogToolResultConstants.Accept);
+                try
+                {
+                    var jobs = GetAllJobs(false);
+                    if (jobs == null || jobId < 0 || jobId >= jobs.Count)
+                    {
+                        Bug("[JobController] Job ID {0} not found in listJobs (Total jobs: {1})", jobId, jobs?.Count ?? 0);
+                        return false;
+                    }
 
-            Info($"[JobController] Job ID {jobId} ('{targetJob.Name}') Finished. Status: {targetJob.RunStatus}, IsOk: {isOk}");
-            return isOk;
+                    var targetJob = jobs[jobId];
+                    if (targetJob == null)
+                    {
+                        Bug("[JobController] Job ID {0} is null", jobId);
+                        return false;
+                    }
+
+                    CameraJob camJob = null;
+                    IspJob ispJob = null;
+
+                    if (targetJob is CameraJob cJob)
+                    {
+                        camJob = cJob;
+                        ispJob = GetJobs<IspJob>().FirstOrDefault(j => j.CamSettings.CameraId == camJob.CamSettings.CameraId) ?? GetJobs<IspJob>().FirstOrDefault();
+                    }
+                    else if (targetJob is IspJob iJob)
+                    {
+                        ispJob = iJob;
+                        camJob = GetCameraJob(ispJob.CamSettings.CameraId) ?? GetJobs<CameraJob>().FirstOrDefault();
+                    }
+                    else
+                    {
+                        ispJob = targetJob as IspJob ?? GetJobs<IspJob>().FirstOrDefault();
+                        camJob = GetCameraJob(ispJob?.CamSettings?.CameraId ?? 0) ?? GetJobs<CameraJob>().FirstOrDefault();
+                    }
+
+                    if (ispJob == null)
+                    {
+                        Bug("RunJobByIdAsync: ispJob is null for Job ID {0}", jobId);
+                        return false;
+                    }
+
+                    if (camJob == null)
+                    {
+                        camJob = GetCameraJob(ispJob.CamSettings.CameraId);
+                    }
+                    inspectionCameraJob = camJob;
+                    if (camJob == null)
+                    {
+                        Bug("RunJobByIdAsync: Cannot find camera job for IspJob {0}", ispJob.Name);
+                        return false;
+                    }
+
+                    CameraInfo(camJob, "Run Inspection: {0}", ispJob.Name);
+
+                    if (ispJob.LightJobId != null && ispJob.LightJobId.Length > 0)
+                    {
+                        RunLightJob(true, ispJob);
+                        CameraInfo(camJob, "{0} : Run Light job ", ispJob.Name);
+                    }
+
+                    // Run camera job
+                    camJob.RunTool();
+                    if (camJob.RunStatus == CogToolResultConstants.Accept)
+                    {
+                        CameraInfo(camJob, "RunJobByIdAsync: Camera capture OK");
+                        ispJob.InputImage = camJob.OutputImage;
+
+                        // Run inspection job
+                        ispJob.RunTool();
+                        if (ispJob.RunStatus == CogToolResultConstants.Accept)
+                        {
+                            if (ispJob.Result != null)
+                            {
+                                if ((bool)ispJob.Result)
+                                {
+                                    isOk = true;
+                                }
+                                else
+                                {
+                                    isOk = false;
+                                }
+                            }
+                            else
+                            {
+                                CameraBug(camJob, "RunJobByIdAsync: IspJob result is null");
+                                isOk = false;
+                            }
+
+                            // Xuất dữ liệu qua SetOutPutData
+                            var plcCam = GetPlcCamByID(ispJob.PlcJobId);
+                            SetOutPutData(ispJob, plcCam, camJob);
+
+                            // Giá trị kết quả và số lượng đọc được lấy từ listDouble của SetOutPutData
+                            listResults.Add(isOk);
+                            if (ispJob.ListDouble != null)
+                            {
+                                try
+                                {
+                                    var lstDouble = ispJob.ListDouble as List<double>;
+                                    if (lstDouble != null && lstDouble.Count > 0)
+                                    {
+                                        foreach (var d in lstDouble)
+                                        {
+                                            listResults.Add(d);
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    CameraBug(camJob, "Cannot convert List double: {0}", ex.Message);
+                                }
+                            }
+
+                            var fileName = GetImageFileName(BuildImageName(ispJob.ProductID, ispJob.Name));
+
+                            sw.Stop();
+                            double CycleTime = sw.Elapsed.TotalSeconds;
+                            CameraInfo(camJob, "CycleTime time: {0:F3} s", CycleTime);
+
+                            var lstDoubleForDisplay = ispJob.ListDouble as List<double>;
+                            string qtyStr = (lstDoubleForDisplay != null && lstDoubleForDisplay.Count > 0) ? $"Qty: {string.Join(", ", lstDoubleForDisplay)} | " : "";
+                            UpdateData?.Invoke((int)ispJob.DisplayId, $"{qtyStr}Time: {CycleTime:F3} s");
+
+                            // Raise result event
+                            ispJob.RaiseOnResult((int)ispJob.DisplayId, camJob.Watermark, fileName, (ICogImage)ispJob.OutputImage, listResults, isOk);
+
+                            // Save image
+                            OnJobDone(camJob.Watermark, fileName, (ICogImage)camJob.OutputImage, (ICogRecord)ispJob.Record, isOk, false);
+                            if (isOk)
+                            {
+                                CameraInfo(camJob, "{0}: Inspection result OK", ispJob.Name);
+                            }
+                            else
+                            {
+                                CameraInfo(camJob, "{0}: Inspection result NG", ispJob.Name);
+                            }
+                        }
+                        else
+                        {
+                            Bug("RunJobByIdAsync: IspJob run failed, Status: {0}", ispJob.RunStatus);
+                            CameraBugOnly(camJob, "RunJobByIdAsync: IspJob run failed, Status: {0}", ispJob.RunStatus);
+                            isOk = false;
+                        }
+                    }
+                    else
+                    {
+                        Bug("RunJobByIdAsync: Camera job run failed, Status: {0}", camJob.RunStatus);
+                        CameraBugOnly(camJob, "RunJobByIdAsync: Camera job run failed, Status: {0}", camJob.RunStatus);
+                        isOk = false;
+                    }
+
+                    // Turn off light
+                    if (ispJob.LightJobId != null && ispJob.LightJobId.Length > 0)
+                    {
+                        RunLightJob(false, ispJob);
+                        CameraInfo(camJob, "{0} : Off Light job ", ispJob.Name);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    CameraBug(inspectionCameraJob, "RunJobByIdAsync Exception: {0}", ex.Message);
+                    CameraBug(inspectionCameraJob, ex.StackTrace);
+                    isOk = false;
+                }
+
+                return isOk;
+            });
         }
 
         #endregion

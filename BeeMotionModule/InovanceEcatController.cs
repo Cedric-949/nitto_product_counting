@@ -373,9 +373,9 @@ namespace BeeMotionModule
                     st.ActualPosition = 0;
                     st.ActualPositionPulses = 0;
                     st.CommandPosition = 0;
-                    st.IsHomed = false;
+                    st.IsHomed = true;
                 }
-                Log($"[Motion Simulate] Set Zero Axis {axis}");
+                Log($"[Motion Simulate] Set Zero Axis {axis} (Virtual Home established)");
                 return true;
             }
 
@@ -386,9 +386,12 @@ namespace BeeMotionModule
                 uint res = ImcApi.IMC_SetAxCurPos(_cardHandle, axis, 0.0);
                 if (res == ImcApi.EXE_SUCCESS && _axisStates.TryGetValue(axis, out var state))
                 {
-                    state.IsHomed = false;
+                    state.ActualPosition = 0;
+                    state.ActualPositionPulses = 0;
+                    state.CommandPosition = 0;
+                    state.IsHomed = true;
                 }
-                Log($"[Motion] Set Zero Axis {axis}: Code 0x{res:X8}");
+                Log($"[Motion] Set Zero Axis {axis}: Code 0x{res:X8} (Virtual Home established)");
                 return res == ImcApi.EXE_SUCCESS;
             }
             catch (Exception ex)
@@ -834,7 +837,8 @@ namespace BeeMotionModule
                                 state.LimitPositive = (rawSts[0] & (int)ImcApi.AX_POSLMT_BIT) != 0;
                                 state.LimitNegative = (rawSts[0] & (int)ImcApi.AX_NEGLMT_BIT) != 0;
                                 state.EmergencyStop = (rawSts[0] & (int)ImcApi.AX_EMG_STOP_BIT) != 0;
-                                state.HomeSensor = (rawSts[0] & (int)ImcApi.AX_HM_BIT) != 0;
+                                bool isNearHomeOrigin = Math.Abs(state.ActualPosition) <= 1.0;
+                                state.HomeSensor = ((rawSts[0] & (int)ImcApi.AX_HM_BIT) != 0 && isNearHomeOrigin);
 
                                 // Đọc ngõ vào số trực tiếp từ Driver qua EtherCAT (CiA 402 Object 0x60FD):
                                 // Bit 0: Negative limit switch (NOT), Bit 1: Positive limit switch (POT), Bit 2: Home switch (ORG)
@@ -844,7 +848,8 @@ namespace BeeMotionModule
                                 {
                                     if ((ecatDi & 0x01) != 0) state.LimitNegative = true;
                                     if ((ecatDi & 0x02) != 0) state.LimitPositive = true;
-                                    state.HomeSensor = state.HomeSensor || ((ecatDi & 0x04) != 0) || IsHomeUpSensorActive();
+                                    bool ecatOrg = (ecatDi & 0x04) != 0 && isNearHomeOrigin;
+                                    state.HomeSensor = state.HomeSensor || ecatOrg || IsHomeUpSensorActive();
                                 }
                                 else
                                 {
@@ -972,8 +977,14 @@ namespace BeeMotionModule
 
         public bool IsHomeUpSensorActive()
         {
-            if (_config.Simulate) return true;
-            short diPin = (short)(_config?.IO?.SensorHomeUpDIBit ?? 3);
+            if (_config.Simulate) return false;
+            // Chân DI 11 trong IOConfig máy Nitto là LC_High (hiện chưa dùng làm cảm biến cữ trên)
+            // Chỉ đọc nếu chân được cấu hình hợp lệ và khác chân LC_High chưa dùng
+            if (_config?.IO?.SensorHomeUpDIBit == null || _config.IO.SensorHomeUpDIBit < 0 || _config.IO.SensorHomeUpDIBit == 11)
+            {
+                return false;
+            }
+            short diPin = (short)_config.IO.SensorHomeUpDIBit;
             return GetDigitalInput(diPin);
         }
 
@@ -1013,7 +1024,7 @@ namespace BeeMotionModule
                 await Task.Delay(200, ct);
                 await Task.Delay(250, ct);
                 if (_axisStates.TryGetValue(axis, out var st)) st.ActualPosition = pos;
-                Log($"[Nitto Motion Sim] Reached Clamp Down position and jogged negative at {jogSpeed:F1} mm/s until Load Cell OK.");
+                Log($"[Nitto Motion Sim] Reached Clamp Down position and jogged positive at {jogSpeed:F1} mm/s until Load Cell OK.");
                 return true;
             }
 
@@ -1048,10 +1059,10 @@ namespace BeeMotionModule
                 return true;
             }
 
-            Log($"[Nitto Motion] Jogging Axis {axis} in negative direction at {jogSpeed:F1} mm/s until Load Cell OK (DI {_config.IO.ForceReachedDIBit})...");
-            if (!MoveJog(axis, -jogSpeed))
+            Log($"[Nitto Motion] Jogging Axis {axis} in positive direction at {jogSpeed:F1} mm/s until Load Cell OK (DI {_config.IO.ForceReachedDIBit})...");
+            if (!MoveJog(axis, jogSpeed))
             {
-                Log("[Nitto Motion Error] Failed to start negative clamp jog.");
+                Log("[Nitto Motion Error] Failed to start clamp jog.");
                 return false;
             }
 
@@ -1071,7 +1082,7 @@ namespace BeeMotionModule
 
                     if (IsForceTargetReached())
                     {
-                        Log("[Nitto Motion] Load Cell OK detected on DI10 -> Clamp jog stopped.");
+                        Log($"[Nitto Motion] Load Cell OK detected on DI{_config.IO.ForceReachedDIBit} -> Clamp jog stopped.");
                         return true;
                     }
 
@@ -1083,16 +1094,16 @@ namespace BeeMotionModule
                         return false;
                     }
 
-                    if (axisConfig.EnableSoftwareLimits && axisState.ActualPosition <= axisConfig.SoftwareLimitNegative)
+                    if (axisConfig.EnableSoftwareLimits && axisState.ActualPosition >= axisConfig.SoftwareLimitPositive)
                     {
-                        Log($"[Nitto Motion Error] Clamp jog reached negative software limit {axisConfig.SoftwareLimitNegative:F2} mm before Load Cell OK.");
+                        Log($"[Nitto Motion Error] Clamp jog reached positive software limit {axisConfig.SoftwareLimitPositive:F2} mm before Load Cell OK.");
                         return false;
                     }
 
                     await Task.Delay(10, ct);
                 }
 
-                Log("[Nitto Motion Error] Clamp jog timeout while waiting for Load Cell OK on DI10.");
+                Log($"[Nitto Motion Error] Clamp jog timeout while waiting for Load Cell OK on DI{_config.IO.ForceReachedDIBit}.");
                 return false;
             }
             finally

@@ -121,7 +121,9 @@ namespace BeevisionSolution.ViewComponents
                 // Cập nhật các ô trạng thái (Tiles)
                 tileSvOn.Background = state.IsServoOn ? TileGreenBrush : TileOffBrush;
                 tileInp.Background = state.IsInPosition ? TileGreenBrush : TileOffBrush;
-                tileHome.Background = state.IsHomed ? TileGreenBrush : TileOffBrush;
+                bool isAtHome = state.IsHomed && Math.Abs(state.ActualPosition) <= 0.1;
+                tileHome.Background = isAtHome ? TileGreenBrush : TileOffBrush;
+                tileHome.BorderBrush = isAtHome ? TileGreenBrush : (state.IsHomed ? TileBlueBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46)));
                 tileLmPos.Background = state.LimitPositive ? TileRedBrush : TileOffBrush;
                 tileLmNeg.Background = state.LimitNegative ? TileRedBrush : TileOffBrush;
                 tileAlm.Background = state.IsError ? TileRedBrush : TileOffBrush;

@@ -208,14 +208,16 @@ namespace BeevisionSolution.Views
                 if (tileSvOn != null) tileSvOn.Background = state.IsServoOn ? TileGreenBrush : TileOffBrush;
                 if (tileInp != null) tileInp.Background = state.IsInPosition ? TileBlueBrush : TileOffBrush;
 
+                bool isAtHome = state.IsHomed && Math.Abs(state.ActualPosition) <= 0.1;
+
                 if (tileHome != null)
                 {
-                    tileHome.Background = state.HomeSensor ? TileGreenBrush : TileOffBrush;
-                    tileHome.BorderBrush = state.HomeSensor ? TileGreenBrush : (state.IsHomed ? TileBlueBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46)));
+                    tileHome.Background = isAtHome ? TileGreenBrush : TileOffBrush;
+                    tileHome.BorderBrush = isAtHome ? TileGreenBrush : (state.IsHomed ? TileBlueBrush : new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46)));
                 }
                 if (ledHome != null)
                 {
-                    ledHome.Fill = state.HomeSensor ? TileGreenBrush : (state.IsHomed ? TileBlueBrush : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)));
+                    ledHome.Fill = isAtHome ? TileGreenBrush : (state.IsHomed ? TileBlueBrush : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)));
                 }
 
                 if (tileLmPos != null)
@@ -547,7 +549,7 @@ namespace BeevisionSolution.Views
             bool ok = motion.SetZero(_currentAxis);
             if (ok)
             {
-                Motion_OnLogMessage($"[Setting] Axis {_currentAxis}: Current coordinate set to 0.000 mm for this session. Axis is not hardware-homed.");
+                Motion_OnLogMessage($"[Setting] Axis {_currentAxis}: Virtual Home established (0.000 mm). Axis is homed for this session.");
                 if (txtActualPos != null) txtActualPos.Text = "0.000 mm";
             }
             else

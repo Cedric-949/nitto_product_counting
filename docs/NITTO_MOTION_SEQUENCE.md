@@ -27,7 +27,7 @@ flowchart TD
 
     C2{"Cả 2 nút DI 1 & DI 2<br/>cùng HIGH trong 500ms?"}:::decision
 
-    S3["<b>STATE: CLAMPING DOWN</b><br/>• Xung Reset Loadcell DO 3 (200 ms)<br/>• Hạ trục Leadshine EL7 tới ClampingPosition<br/>• Chạy jog âm dò lực (ClampJogVelocity 10 mm/s)<br/>• Bảo vệ cữ mềm âm SoftwareLimitNegative"]:::state
+    S3["<b>STATE: CLAMPING DOWN</b><br/>• Xung Reset Loadcell DO 3 (200 ms)<br/>• Hạ trục Leadshine EL7 tới ClampingPosition<br/>• Chạy jog dương dò lực (ClampJogVelocity 10 mm/s)<br/>• Bảo vệ cữ mềm dương SoftwareLimitPositive"]:::state
     IO2["<b>Loadcell Bongshin BS-205-35</b><br/>PCIe DI 10 (X11): Load Cell OK<br/>(Đạt ngưỡng lực ép phẳng tệp phôi)"]:::io
 
     C3{"Đạt lực ép DI 10<br/>(Load Cell OK)?"}:::decision

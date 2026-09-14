@@ -96,7 +96,7 @@ namespace BeeMotionModule.Models
         public double StandbyPosition { get; set; } = 0.0;    // Vị trí mở kẹp trên cao (mm)
         public double ClampingPosition { get; set; } = 80.0;  // Vị trí tỳ ép sản phẩm (mm)
         public double ClampingVelocity { get; set; } = 50.0;  // Vận tốc tỳ ép (mm/s)
-        public double ClampJogVelocity { get; set; } = 10.0;  // Vận tốc jog âm sau khi đến vị trí Clamp Down (mm/s)
+        public double ClampJogVelocity { get; set; } = 10.0;  // Vận tốc jog dương tiến xuống đè phôi dò lực (mm/s)
         public double RetractVelocity { get; set; } = 80.0;   // Vận tốc nâng lên (mm/s)
         public int ForceDwellTimeMs { get; set; } = 150;      // Thời gian duy trì lực ổn định trước khi chụp (ms)
         public int TwoHandSyncTimeMs { get; set; } = 500;     // Cửa sổ thời gian bấm đồng thời 2 nút IDEC (ms)
