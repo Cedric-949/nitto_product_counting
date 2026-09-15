@@ -67,16 +67,16 @@
         <Grid.RowDefinitions>
             <!-- Row 0: Top Header (Axis, Simulate, Stats Badges) -->
             <RowDefinition Height="Auto"/>
-            <!-- Row 1: Sequence Pipeline 4 Cards -->
+            <!-- Row 1: Top Quick Action Bar (Menu thao tác kích thước lớn) -->
             <RowDefinition Height="Auto"/>
-            <!-- Row 2: Sensors & Two-Hand Safety & Force Dashboard (Gọn gàng vừa vặn) -->
+            <!-- Row 2: Sequence Pipeline 4 Cards -->
             <RowDefinition Height="Auto"/>
-            <!-- Row 3: Readouts & Mini Status Matrix -->
+            <!-- Row 3: Sensors & Two-Hand Safety & Force Dashboard (Gọn gàng vừa vặn) -->
             <RowDefinition Height="Auto"/>
-            <!-- Row 4: Motion Activity Logs (Mở rộng chiếm chiều cao còn lại) -->
+            <!-- Row 4: Readouts & Mini Status Matrix -->
+            <RowDefinition Height="Auto"/>
+            <!-- Row 5: Motion Activity Logs (Mở rộng chiếm chiều cao còn lại) -->
             <RowDefinition Height="*"/>
-            <!-- Row 5: Bottom Quick Action Bar -->
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- ================= ROW 0: TOP HEADER & STATS ================= -->
@@ -122,8 +122,69 @@
             </Grid>
         </Border>
 
-        <!-- ================= ROW 1: SEQUENCE PROCESS PIPELINE ================= -->
-        <GroupBox Grid.Row="1" Header="Sequence Process Pipeline" Margin="2,1,2,3">
+        <!-- ================= ROW 1: TOP QUICK ACTION BAR ================= -->
+        <Border Grid.Row="1" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="3" Margin="2,1,2,3">
+            <UniformGrid Rows="1">
+                <!-- 1. AUTO -->
+                <Button x:Name="btnAutoMode" Height="76" Margin="2" Padding="2" Click="BtnAutoMode_Click">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <iconPacks:PackIconMaterial Kind="Play" Width="24" Height="24" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock Text="AUTO" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 2. MANUAL -->
+                <Button x:Name="btnManualMode" Height="76" Margin="2" Padding="2" Background="#2E8B57" Click="BtnManualMode_Click">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <iconPacks:PackIconMaterial Kind="GamepadVariant" Width="24" Height="24" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock Text="MANUAL" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 3. STOP (CẢNH BÁO ĐỎ) -->
+                <Button x:Name="btnStop" Height="76" Margin="2" Padding="2" Background="#A80000" Click="BtnStop_Click">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <iconPacks:PackIconMaterial Kind="Stop" Width="24" Height="24" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock Text="STOP" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 4. HOME -->
+                <Button x:Name="btnHome" Height="76" Margin="2" Padding="2" Click="BtnHome_Click">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <iconPacks:PackIconMaterial Kind="Home" Width="24" Height="24" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock Text="HOME" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 5. RESET -->
+                <Button x:Name="btnReset" Height="76" Margin="2" Padding="2" Click="BtnReset_Click">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <iconPacks:PackIconMaterial Kind="Refresh" Width="24" Height="24" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock Text="RESET" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 6. CLEAR ALM -->
+                <Button x:Name="btnClearAlm" Height="76" Margin="2" Padding="2" Click="BtnClearAlm_Click">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <iconPacks:PackIconMaterial Kind="BellOffOutline" Width="24" Height="24" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock Text="CLR ALM" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 7. SERVO TOGGLE -->
+                <Button x:Name="btnServoToggle" Height="76" Margin="2" Padding="2" Background="#2E8B57" Click="BtnServoToggle_Click">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <iconPacks:PackIconMaterial Kind="Power" Width="24" Height="24" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="txtServoBtn" Text="Servo ON" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </UniformGrid>
+        </Border>
+
+        <!-- ================= ROW 2: SEQUENCE PROCESS PIPELINE ================= -->
+        <GroupBox Grid.Row="2" Header="Sequence Process Pipeline" Margin="2,1,2,3">
             <UniformGrid Columns="4" Margin="1,2">
                 <!-- Step 1 Card: Two-Hand Safety Trigger -->
                 <Border x:Name="cardStep1" Background="#252526" BorderBrush="#3F3F46" BorderThickness="2" CornerRadius="4" Margin="2" Padding="4">
@@ -207,8 +268,8 @@
             </UniformGrid>
         </GroupBox>
 
-        <!-- ================= ROW 2: SENSORS & ACTUATORS ================= -->
-        <Grid Grid.Row="2" Margin="0,1">
+        <!-- ================= ROW 3: SENSORS & ACTUATORS ================= -->
+        <Grid Grid.Row="3" Margin="0,1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/> <!-- Two-Hand & Force -->
                 <ColumnDefinition Width="*"/> <!-- Optical Sensors & Tower -->
@@ -354,8 +415,8 @@
             </GroupBox>
         </Grid>
 
-        <!-- ================= ROW 3: READOUTS & MINI STATUS MATRIX ================= -->
-        <Border Grid.Row="3" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="6,4" Margin="2,2,2,2">
+        <!-- ================= ROW 4: READOUTS & MINI STATUS MATRIX ================= -->
+        <Border Grid.Row="4" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="6,4" Margin="2,2,2,2">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <!-- Column 0: Coordinates & Master OP -->
@@ -436,8 +497,8 @@
             </Grid>
         </Border>
 
-        <!-- ================= ROW 4: MOTION ACTIVITY LOGS ================= -->
-        <GroupBox Grid.Row="4" Header="{DynamicResource strMotionActivityLogs}" Margin="2,1,2,2" Padding="4,4,4,4">
+        <!-- ================= ROW 5: MOTION ACTIVITY LOGS ================= -->
+        <GroupBox Grid.Row="5" Header="{DynamicResource strMotionActivityLogs}" Margin="2,1,2,2" Padding="4,4,4,4">
             <Grid Margin="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -474,66 +535,5 @@
                          MinHeight="90"/>
             </Grid>
         </GroupBox>
-
-        <!-- ================= ROW 5: BOTTOM QUICK ACTION BAR ================= -->
-        <Border Grid.Row="5" Background="#252526" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="4" Padding="2" Margin="2,2,2,1">
-            <UniformGrid Rows="1">
-                <!-- 1. AUTO -->
-                <Button x:Name="btnAutoMode" Click="BtnAutoMode_Click">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="Play" Width="14" Height="14" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="AUTO" FontSize="11" FontWeight="Bold"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- 2. MANUAL -->
-                <Button x:Name="btnManualMode" Background="#2E8B57" Click="BtnManualMode_Click">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="GamepadVariant" Width="14" Height="14" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="MANUAL" FontSize="11" FontWeight="Bold"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- 3. STOP (CẢNH BÁO ĐỎ) -->
-                <Button x:Name="btnStop" Background="#A80000" Click="BtnStop_Click">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="Stop" Width="14" Height="14" Margin="0,0,3,0" Foreground="White" VerticalAlignment="Center"/>
-                        <TextBlock Text="STOP" FontSize="11" FontWeight="Bold" Foreground="White"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- 4. HOME -->
-                <Button x:Name="btnHome" Click="BtnHome_Click">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="Home" Width="14" Height="14" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="HOME" FontSize="11" FontWeight="Bold"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- 5. RESET -->
-                <Button x:Name="btnReset" Click="BtnReset_Click">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="Refresh" Width="14" Height="14" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="RESET" FontSize="11" FontWeight="Bold"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- 6. CLEAR ALM -->
-                <Button x:Name="btnClearAlm" Click="BtnClearAlm_Click">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="BellOffOutline" Width="14" Height="14" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="CLR ALM" FontSize="11" FontWeight="Bold"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- 7. SERVO TOGGLE -->
-                <Button x:Name="btnServoToggle" Background="#2E8B57" Click="BtnServoToggle_Click">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="Power" Width="14" Height="14" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="txtServoBtn" Text="Servo ON" FontSize="11" FontWeight="Bold"/>
-                    </StackPanel>
-                </Button>
-            </UniformGrid>
-        </Border>
     </Grid>
 </UserControl>

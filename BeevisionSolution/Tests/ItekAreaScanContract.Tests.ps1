@@ -230,15 +230,87 @@ try
         ItekGrabTimeoutMs = 5000
         ItekBufferCount = 2
         ItekBoardConfigPath = ""
+        ItekCameraUserSet = ""
+        ItekExpectedColor = $false
     }
 
     foreach ($entry in $expectedDefaults.GetEnumerator())
     {
-        $actual = $cameraJobType.GetProperty($entry.Key).GetValue($job, $null)
+        $property = $cameraJobType.GetProperty($entry.Key)
+        if ($null -eq $property)
+        {
+            throw "CameraJob must expose '$($entry.Key)' for ITEK format configuration."
+        }
+
+        $actual = $property.GetValue($job, $null)
         if ($actual -ne $entry.Value)
         {
             throw "$($entry.Key) default must be '$($entry.Value)', actual '$actual'."
         }
+    }
+
+    if ($handlerSource -notmatch 'LoadCameraUserSet\(\)' -or
+        $handlerSource -notmatch 'UserSetSelector.*ItekCameraUserSet')
+    {
+        throw "ItekAreaScanHandler must load the configured camera UserSet before reading frame metadata."
+    }
+
+    $initStart = $handlerSource.IndexOf("public void Init")
+    $grabStartForInit = $handlerSource.IndexOf("public void GrabImage", $initStart)
+    $initSource = $handlerSource.Substring($initStart, $grabStartForInit - $initStart)
+    if ($initSource.IndexOf("LoadCameraUserSet()") -lt 0 -or
+        $initSource.IndexOf("LoadBoardConfiguration()") -lt 0 -or
+        $initSource.IndexOf("ReadFrameGeometry()") -lt 0 -or
+        $initSource.IndexOf("ConfigureBoard()") -lt 0 -or
+        $initSource.IndexOf("LoadCameraUserSet()") -gt $initSource.IndexOf("LoadBoardConfiguration()") -or
+        $initSource.IndexOf("LoadBoardConfiguration()") -gt $initSource.IndexOf("ReadFrameGeometry()") -or
+        $initSource.IndexOf("ReadFrameGeometry()") -gt $initSource.IndexOf("ConfigureBoard()"))
+    {
+        throw "ItekAreaScanHandler must validate camera/board metadata before enabling grab configuration."
+    }
+
+    foreach ($failClosedMessage in @(
+        "ITEK color camera requires a camera UserSet",
+        "ITEK color camera requires a board configuration file",
+        "Bayer pattern mismatch",
+        "bit depth mismatch",
+        "monochrome PixelFormat",
+        "packed PixelFormat",
+        "image geometry mismatch",
+        "frame pitch is smaller",
+        "storage bit depth mismatch"))
+    {
+        if ($handlerSource -notmatch [regex]::Escape($failClosedMessage))
+        {
+            throw "ItekAreaScanHandler must fail closed with a diagnostic for '$failClosedMessage'."
+        }
+    }
+
+    if ($handlerSource -notmatch 'ItekExpectedColor')
+    {
+        throw "ItekAreaScanHandler must validate the configured color-image contract."
+    }
+
+    if ($handlerSource -notmatch 'PixelFormat')
+    {
+        throw "ItekAreaScanHandler must read camera PixelFormat before accepting frame metadata."
+    }
+
+    if ($handlerSource -notmatch 'CogImage24PlanarColor')
+    {
+        throw "ItekAreaScanHandler must reject a mono Cognex image when a color image is required."
+    }
+
+    if ($handlerSource -notmatch 'UserSetSelector' -or
+        $handlerSource -notmatch 'UserSet read-back mismatch')
+    {
+        throw "ItekAreaScanHandler must read back the selected camera UserSet."
+    }
+
+    if ($handlerSource -notmatch 'First frame converted' -or
+        $handlerSource -notmatch 'CognexImageType')
+    {
+        throw "ItekAreaScanHandler must log the Cognex image type after the first grab."
     }
 
     $toolBlockRan = $cameraJobType.GetMethod("ToolBlockRan", $privateInstance)

@@ -53,6 +53,8 @@ namespace BeevisionSolution.Models
         public int ItekGrabTimeoutMs { get; set; } = 5000;
         public int ItekBufferCount { get; set; } = 2;
         public string ItekBoardConfigPath { get; set; } = "";
+        public string ItekCameraUserSet { get; set; } = "";
+        public bool ItekExpectedColor { get; set; } = false;
         public bool IsLightTrigger { get; set; }
         public bool UseCameraDmCode { get; set; } = false;
         public string dmCode { get; set; } = "";

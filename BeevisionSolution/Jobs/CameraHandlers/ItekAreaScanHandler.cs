@@ -5,6 +5,7 @@ using IKapCDotNet;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using static BeevisionSolution.Utils.Common;
 
@@ -26,6 +27,10 @@ namespace BeevisionSolution.Jobs.CameraHandlers
         private int _imageType;
         private int _bayerPattern;
         private int _bitDepth;
+        private int _boardBit;
+        private string _pixelFormat;
+        private bool _isBayer;
+        private bool _firstGrabLogged;
 
         public bool IsInitialized { get; private set; }
 
@@ -66,22 +71,28 @@ namespace BeevisionSolution.Jobs.CameraHandlers
                         throw new InvalidOperationException("Open ITEK GigEVisionBoard failed.");
                     }
 
+                    LoadCameraUserSet();
                     LoadBoardConfiguration();
+                    ReadFrameGeometry();
                     ConfigureBoard();
                     ConfigureSoftwareTrigger();
-                    ReadFrameGeometry();
 
                     IsInitialized = true;
                     _job.Available = true;
                     Info(
-                        "[ITEK] Ready - Job:{0}, Device:{1}, Serial:{2}, Size:{3}x{4}, Pitch:{5}, BitDepth:{6}, Buffers:{7}",
+                        "[ITEK] Ready - Job:{0}, Device:{1}, Serial:{2}, UserSet:{3}, PixelFormat:{4}, ImageType:{5}, BayerPattern:{6}, Size:{7}x{8}, Pitch:{9}, BitDepth:{10}, BoardBit:{11}, Buffers:{12}",
                         _job.Name,
                         deviceInfo.ModelName,
                         deviceInfo.SerialNumber,
+                        string.IsNullOrWhiteSpace(_job.ItekCameraUserSet) ? "<current>" : _job.ItekCameraUserSet,
+                        _pixelFormat,
+                        DescribeImageType(_imageType),
+                        DescribeBayerPattern(_bayerPattern),
                         _width,
                         _height,
                         _linePitch,
                         _bitDepth,
+                        _job.ItekExpectedColor ? _boardBit.ToString() : "<not validated>",
                         _job.ItekBufferCount);
                 }
                 catch (Exception ex)
@@ -131,6 +142,19 @@ namespace BeevisionSolution.Jobs.CameraHandlers
                     }
 
                     image = ConvertFrame(framePointer);
+                    if (_job.ItekExpectedColor && !(image is CogImage24PlanarColor))
+                    {
+                        (image as IDisposable)?.Dispose();
+                        image = null;
+                        throw new InvalidOperationException("ITEK color image contract failed: conversion returned a mono image.");
+                    }
+
+                    if (!_firstGrabLogged)
+                    {
+                        Info("[ITEK] First frame converted - Job:{0}, CognexImageType:{1}", _job.Name, image.GetType().FullName);
+                        _firstGrabLogged = true;
+                    }
+
                     toolBlock.Inputs["InputImage"].Value = image;
                     image = null;
 
@@ -223,6 +247,11 @@ namespace BeevisionSolution.Jobs.CameraHandlers
         {
             if (string.IsNullOrWhiteSpace(_job.ItekBoardConfigPath))
             {
+                if (_job.ItekExpectedColor)
+                {
+                    throw new InvalidOperationException("ITEK color camera requires a board configuration file.");
+                }
+
                 Info("[ITEK] Board config path is empty; current camera and board settings will be used.");
                 return;
             }
@@ -234,6 +263,42 @@ namespace BeevisionSolution.Jobs.CameraHandlers
             }
 
             CheckBoard(IKapBoard.IKapLoadConfigurationFromFile(_board, path), "Load board configuration");
+        }
+
+        private void LoadCameraUserSet()
+        {
+            if (string.IsNullOrWhiteSpace(_job.ItekCameraUserSet))
+            {
+                if (_job.ItekExpectedColor)
+                {
+                    throw new InvalidOperationException("ITEK color camera requires a camera UserSet.");
+                }
+
+                Info("[ITEK] Camera UserSet is empty; current camera settings will be used.");
+                return;
+            }
+
+            CheckCamera(
+                IKapC.ItkDevFromString(_device, "UserSetSelector", _job.ItekCameraUserSet),
+                "Select camera UserSet");
+            CheckCamera(
+                IKapC.ItkDevExecuteCommand(_device, "UserSetLoad"),
+                "Load camera UserSet");
+
+            var selectedUserSet = new StringBuilder(128);
+            uint selectedUserSetLength = (uint)selectedUserSet.Capacity;
+            CheckCamera(
+                IKapC.ItkDevToString(_device, "UserSetSelector", selectedUserSet, ref selectedUserSetLength),
+                "Read camera UserSet");
+            string readBackUserSet = selectedUserSet
+                .ToString(0, (int)Math.Min(selectedUserSetLength, (uint)selectedUserSet.Length))
+                .TrimEnd('\0')
+                .Trim();
+            if (!string.Equals(readBackUserSet, _job.ItekCameraUserSet, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "ITEK camera UserSet read-back mismatch. Requested: " + _job.ItekCameraUserSet + ", Actual: " + readBackUserSet);
+            }
         }
 
         private static string ResolveProfilePath(string path)
@@ -261,6 +326,15 @@ namespace BeevisionSolution.Jobs.CameraHandlers
                     (uint)IKapBoard.IKP_FRAME_TRANSFER_MODE,
                     IKapBoard.IKP_FRAME_TRANSFER_SYNCHRONOUS_NEXT_EMPTY_WITH_PROTECT),
                 "Set protected transfer mode");
+
+            if (_isBayer)
+            {
+                try
+                {
+                    IKapBoard.IKapSetInfo(_board, (uint)IKapBoard.IKP_BAYER_PATTERN, _bayerPattern);
+                }
+                catch { }
+            }
         }
 
         private void ConfigureSoftwareTrigger()
@@ -285,23 +359,286 @@ namespace BeevisionSolution.Jobs.CameraHandlers
         private void ReadFrameGeometry()
         {
             long frameSize = 0;
+            int boardWidth = 0;
+            int boardHeight = 0;
+            var pixelFormat = new StringBuilder(256);
+            uint pixelFormatLength = (uint)pixelFormat.Capacity;
+            uint pixelFormatStatus = IKapC.ItkDevToString(_device, "PixelFormat", pixelFormat, ref pixelFormatLength);
+            if (pixelFormatStatus != IKapC.ITKSTATUS_OK)
+            {
+                if (_job.ItekExpectedColor)
+                {
+                    CheckCamera(pixelFormatStatus, "Read camera PixelFormat");
+                }
+
+                _pixelFormat = string.Empty;
+                Info("[ITEK] Camera PixelFormat is unavailable; format validation skipped for a non-color job.");
+            }
+            else
+            {
+                _pixelFormat = pixelFormat.ToString(0, (int)Math.Min(pixelFormatLength, (uint)pixelFormat.Length));
+            }
+
             CheckCamera(IKapC.ItkDevGetInt64(_device, "Width", ref _width), "Read image width");
             CheckCamera(IKapC.ItkDevGetInt64(_device, "Height", ref _height), "Read image height");
             CheckBoard(IKapBoard.IKapGetInfo64(_board, (uint)IKapBoard.IKP_FRAME_SIZE, ref frameSize), "Read frame size");
+            if (_job.ItekExpectedColor)
+            {
+                CheckBoard(IKapBoard.IKapGetInfo(_board, (uint)IKapBoard.IKP_IMAGE_WIDTH, ref boardWidth), "Read board image width");
+                CheckBoard(IKapBoard.IKapGetInfo(_board, (uint)IKapBoard.IKP_IMAGE_HEIGHT, ref boardHeight), "Read board image height");
+                if (boardWidth != _width || boardHeight != _height)
+                {
+                    throw new InvalidOperationException(
+                        "ITEK camera/board image geometry mismatch. Camera: " + _width + "x" + _height + ", Board: " + boardWidth + "x" + boardHeight);
+                }
+            }
             CheckBoard(IKapBoard.IKapGetInfo(_board, (uint)IKapBoard.IKP_IMAGE_TYPE, ref _imageType), "Read image type");
             CheckBoard(IKapBoard.IKapGetInfo(_board, (uint)IKapBoard.IKP_BAYER_PATTERN, ref _bayerPattern), "Read Bayer pattern");
             CheckBoard(IKapBoard.IKapGetInfo(_board, (uint)IKapBoard.IKP_DATA_FORMAT, ref _bitDepth), "Read bit depth");
+            if (_job.ItekExpectedColor)
+            {
+                CheckBoard(IKapBoard.IKapGetInfo(_board, (uint)IKapBoard.IKP_BOARD_BIT, ref _boardBit), "Read board bit depth");
+            }
 
             if (_width <= 0 || _height <= 0 || _width > int.MaxValue || _height > int.MaxValue || frameSize <= 0)
             {
                 throw new InvalidOperationException("ITEK returned invalid frame geometry.");
             }
 
-            _linePitch = frameSize / _height;
+            long frameHeight = _job.ItekExpectedColor ? boardHeight : _height;
+            if (frameHeight <= 0 || frameSize % frameHeight != 0)
+            {
+                throw new InvalidOperationException("ITEK frame size is not divisible by image height.");
+            }
+
+            _linePitch = frameSize / frameHeight;
             if (_linePitch <= 0 || _linePitch > int.MaxValue)
             {
                 throw new InvalidOperationException("ITEK returned an invalid line pitch.");
             }
+
+            ValidateFrameFormat();
+            ValidateFrameGeometry();
+        }
+
+        private void ValidateFrameFormat()
+        {
+            if (!_job.ItekExpectedColor)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_pixelFormat))
+            {
+                throw new InvalidOperationException("ITEK color camera returned an empty PixelFormat.");
+            }
+
+            string pixelFormat = _pixelFormat.Trim().ToUpperInvariant();
+            int expectedImageType;
+            int expectedBayerPattern = 0;
+            bool isBayer = false;
+
+            if (IsPackedPixelFormat(pixelFormat))
+            {
+                throw new InvalidOperationException(
+                    "ITEK packed PixelFormat is unsupported by the current converter: " + _pixelFormat);
+            }
+
+            if (pixelFormat.StartsWith("MONO", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("ITEK color camera is configured with a monochrome PixelFormat: " + _pixelFormat);
+            }
+
+            if (pixelFormat.StartsWith("BAYERRG", StringComparison.Ordinal))
+            {
+                expectedImageType = IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL;
+                expectedBayerPattern = IKapBoard.IKP_BAYER_PATTERN_VAL_RGGB;
+                isBayer = true;
+            }
+            else if (pixelFormat.StartsWith("BAYERBG", StringComparison.Ordinal))
+            {
+                expectedImageType = IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL;
+                expectedBayerPattern = IKapBoard.IKP_BAYER_PATTERN_VAL_BGGR;
+                isBayer = true;
+            }
+            else if (pixelFormat.StartsWith("BAYERGR", StringComparison.Ordinal))
+            {
+                expectedImageType = IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL;
+                expectedBayerPattern = IKapBoard.IKP_BAYER_PATTERN_VAL_GRBG;
+                isBayer = true;
+            }
+            else if (pixelFormat.StartsWith("BAYERGB", StringComparison.Ordinal))
+            {
+                expectedImageType = IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL;
+                expectedBayerPattern = IKapBoard.IKP_BAYER_PATTERN_VAL_GBRG;
+                isBayer = true;
+            }
+            else if (pixelFormat.StartsWith("RGBC", StringComparison.Ordinal))
+            {
+                expectedImageType = IKapBoard.IKP_IMAGE_TYPE_VAL_RGBC;
+            }
+            else if (pixelFormat.StartsWith("BGRC", StringComparison.Ordinal))
+            {
+                expectedImageType = IKapBoard.IKP_IMAGE_TYPE_VAL_BGRC;
+            }
+            else if (pixelFormat.StartsWith("RGB", StringComparison.Ordinal))
+            {
+                expectedImageType = IKapBoard.IKP_IMAGE_TYPE_VAL_RGB;
+            }
+            else if (pixelFormat.StartsWith("BGR", StringComparison.Ordinal))
+            {
+                expectedImageType = IKapBoard.IKP_IMAGE_TYPE_VAL_BGR;
+            }
+            else if (pixelFormat.StartsWith("YUV", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("ITEK color camera uses an unsupported YUV PixelFormat: " + _pixelFormat);
+            }
+            else
+            {
+                throw new InvalidOperationException("ITEK color camera uses an unsupported PixelFormat: " + _pixelFormat);
+            }
+
+            _isBayer = isBayer;
+
+            int cameraBitDepth = ParsePixelFormatBitDepth(pixelFormat);
+            if (cameraBitDepth <= 0 || cameraBitDepth != _bitDepth)
+            {
+                throw new InvalidOperationException(
+                    "ITEK camera/board bit depth mismatch. Camera PixelFormat: " + _pixelFormat + ", Board bit depth: " + _bitDepth);
+            }
+
+            if (isBayer)
+            {
+                // Bo mạch frame grabber đối với camera Bayer nhận luồng dữ liệu RAW 1 kênh 8-bit,
+                // do đó bo mạch chuẩn cấu hình là MONOCHROME (0). Chấp nhận cả MONOCHROME và COLORFUL.
+                if (_imageType != IKapBoard.IKP_IMAGE_TYPE_VAL_MONOCHROME &&
+                    _imageType != IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL)
+                {
+                    throw new InvalidOperationException(
+                        "ITEK camera/board image type mismatch. Camera PixelFormat: " + _pixelFormat + ", Board image type: " + DescribeImageType(_imageType));
+                }
+            }
+            else if (_imageType != expectedImageType)
+            {
+                throw new InvalidOperationException(
+                    "ITEK camera/board image type mismatch. Camera PixelFormat: " + _pixelFormat + ", Board image type: " + DescribeImageType(_imageType));
+            }
+
+            if (isBayer && _bayerPattern != expectedBayerPattern)
+            {
+                if (_imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL)
+                {
+                    throw new InvalidOperationException(
+                        "ITEK camera/board Bayer pattern mismatch. Camera PixelFormat: " + _pixelFormat + ", Board Bayer pattern: " + DescribeBayerPattern(_bayerPattern));
+                }
+
+                Info(
+                    "[ITEK] Board Bayer pattern ({0}) differs from camera PixelFormat ({1}). Using camera pattern ({2}) for software demosaicing.",
+                    DescribeBayerPattern(_bayerPattern),
+                    _pixelFormat,
+                    DescribeBayerPattern(expectedBayerPattern));
+                _bayerPattern = expectedBayerPattern;
+            }
+
+            int expectedBoardBit = _bitDepth > 8 ? 16 : 8;
+            if (_boardBit != expectedBoardBit)
+            {
+                throw new InvalidOperationException(
+                    "ITEK board storage bit depth mismatch. DataFormat: " + _bitDepth + ", BoardBit: " + _boardBit + ", Expected: " + expectedBoardBit);
+            }
+        }
+
+        private void ValidateFrameGeometry()
+        {
+            if (!_job.ItekExpectedColor)
+            {
+                return;
+            }
+
+            int channels;
+            if (_imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL ||
+                _imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_MONOCHROME)
+            {
+                channels = 1;
+            }
+            else if (_imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_RGB ||
+                     _imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_BGR)
+            {
+                channels = 3;
+            }
+            else if (_imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_RGBC ||
+                     _imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_BGRC)
+            {
+                channels = 4;
+            }
+            else
+            {
+                throw new InvalidOperationException("ITEK image type has no supported frame geometry: " + DescribeImageType(_imageType));
+            }
+
+            long bytesPerSample = _bitDepth > 8 ? 2 : 1;
+            long minimumLinePitch = _width * bytesPerSample * channels;
+            if (minimumLinePitch <= 0 || _linePitch < minimumLinePitch)
+            {
+                throw new InvalidOperationException(
+                    "ITEK frame pitch is smaller than the configured image width. Pitch: " + _linePitch + ", Required: " + minimumLinePitch);
+            }
+        }
+
+        private static bool IsPackedPixelFormat(string pixelFormat)
+        {
+            return pixelFormat.EndsWith("P", StringComparison.Ordinal) ||
+                   pixelFormat.IndexOf("PACK", StringComparison.Ordinal) >= 0 ||
+                   pixelFormat.IndexOf("G40", StringComparison.Ordinal) >= 0 ||
+                   pixelFormat.IndexOf("PLANAR", StringComparison.Ordinal) >= 0;
+        }
+
+        private static int ParsePixelFormatBitDepth(string pixelFormat)
+        {
+            for (int index = 0; index < pixelFormat.Length; index++)
+            {
+                if (!char.IsDigit(pixelFormat[index]))
+                {
+                    continue;
+                }
+
+                int end = index;
+                while (end < pixelFormat.Length && char.IsDigit(pixelFormat[end]))
+                {
+                    end++;
+                }
+
+                int bitDepth;
+                if (int.TryParse(pixelFormat.Substring(index, end - index), out bitDepth))
+                {
+                    return bitDepth;
+                }
+
+                index = end - 1;
+            }
+
+            return 0;
+        }
+
+        private static string DescribeImageType(int imageType)
+        {
+            if (imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_MONOCHROME) return "MONOCHROME";
+            if (imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL) return "COLORFUL/BAYER";
+            if (imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_RGB) return "RGB";
+            if (imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_RGBC) return "RGBC";
+            if (imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_BGR) return "BGR";
+            if (imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_BGRC) return "BGRC";
+            return imageType.ToString();
+        }
+
+        private static string DescribeBayerPattern(int bayerPattern)
+        {
+            if (bayerPattern == IKapBoard.IKP_BAYER_PATTERN_VAL_NULL) return "NULL";
+            if (bayerPattern == IKapBoard.IKP_BAYER_PATTERN_VAL_BGGR) return "BGGR";
+            if (bayerPattern == IKapBoard.IKP_BAYER_PATTERN_VAL_RGGB) return "RGGB";
+            if (bayerPattern == IKapBoard.IKP_BAYER_PATTERN_VAL_GBRG) return "GBRG";
+            if (bayerPattern == IKapBoard.IKP_BAYER_PATTERN_VAL_GRBG) return "GRBG";
+            return bayerPattern.ToString();
         }
 
         private ICogImage ConvertFrame(IntPtr source)
@@ -310,14 +647,14 @@ namespace BeevisionSolution.Jobs.CameraHandlers
             int height = (int)_height;
             int pitch = (int)_linePitch;
 
+            if (_isBayer || _imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL)
+            {
+                return DemosaicBayer(source, width, height, pitch, _bitDepth, _bayerPattern);
+            }
+
             if (_imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_MONOCHROME)
             {
                 return CopyMono(source, width, height, pitch, _bitDepth);
-            }
-
-            if (_imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_COLORFUL)
-            {
-                return DemosaicBayer(source, width, height, pitch, _bitDepth, _bayerPattern);
             }
 
             if (_imageType == IKapBoard.IKP_IMAGE_TYPE_VAL_RGB ||
@@ -673,6 +1010,8 @@ namespace BeevisionSolution.Jobs.CameraHandlers
         private void CloseCore()
         {
             IsInitialized = false;
+            _firstGrabLogged = false;
+            _isBayer = false;
 
             if (_device != null)
             {
