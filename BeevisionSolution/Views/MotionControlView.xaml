@@ -653,6 +653,7 @@
                                                 <Button x:Name="btnSimulateTrigger" Content="{DynamicResource strMotionSimulateTwoHand}" Height="32" FontSize="12" FontWeight="Bold" Background="#2D2D30" Click="BtnSimulateTrigger_Click"/>
                                             </StackPanel>
                                         </Grid>
+                                        <Button x:Name="btnTriggerCam" Content="TRIGGER INSPECTION CAMERA" Height="34" Margin="2,8,2,0" Background="#007ACC" FontSize="12" FontWeight="Bold" Click="BtnTriggerCam_Click" ToolTip="Run one camera capture and inspection using the configured inspection job."/>
                                     </StackPanel>
                                 </Border>
                             </GroupBox>

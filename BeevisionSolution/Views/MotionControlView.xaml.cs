@@ -56,6 +56,7 @@ namespace BeevisionSolution.Views
         private DispatcherTimer _ioPollingTimer;
         private bool _isAutoMode = false;
         private bool _isLightOn = false;
+        private bool _isManualCameraTriggerRunning = false;
 
         #region Fallback Controls (Migrated to MotionMainDashboardView)
         private readonly Border tileSvOn = null;
@@ -635,8 +636,35 @@ namespace BeevisionSolution.Views
 
         private async void BtnTriggerCam_Click(object sender, RoutedEventArgs e)
         {
-            Motion_OnLogMessage("[Vision] Manual Camera Trigger...");
-            await JobController.RunJobByIdAsync(0);
+            if (_isManualCameraTriggerRunning)
+            {
+                return;
+            }
+
+            _isManualCameraTriggerRunning = true;
+            if (btnTriggerCam != null)
+            {
+                btnTriggerCam.IsEnabled = false;
+            }
+
+            try
+            {
+                Motion_OnLogMessage("[Vision] Manual inspection camera trigger started...");
+                bool ok = await JobController.RunJobByIdAsync(0);
+                Motion_OnLogMessage($"[Vision] Manual inspection finished: {(ok ? "OK" : "NG or capture failed; check camera log")}");
+            }
+            catch (Exception ex)
+            {
+                Motion_OnLogMessage($"[Vision Error] Manual inspection trigger failed: {ex.Message}");
+            }
+            finally
+            {
+                _isManualCameraTriggerRunning = false;
+                if (btnTriggerCam != null)
+                {
+                    btnTriggerCam.IsEnabled = true;
+                }
+            }
         }
         #endregion
 

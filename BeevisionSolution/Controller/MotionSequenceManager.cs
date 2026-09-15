@@ -393,6 +393,10 @@ namespace BeevisionSolution.Controller
             int dwellTime = teachPt != null && teachPt.DwellTimeMs > 0 ? teachPt.DwellTimeMs : (cfg?.ForceDwellTimeMs > 0 ? cfg.ForceDwellTimeMs : 150);
             int visionJobId = teachPt != null ? teachPt.JobId : 0;
 
+            #region Luồng cũ chuẩn (Cảm biến lực Bongshin Loadcell) - Tạm đóng do loadcell bị hỏng
+            /*
+            // LUỒNG GỐC: Di chuyển đến vị trí kẹp -> Jog tốc độ chậm dò lực -> Cảm biến Loadcell ON (DI10) -> Dwell ổn định lực -> Chụp ảnh
+            // Khi thay thế hoặc sửa xong cảm biến loadcell, bỏ comment khối này và đóng khối luồng tạm thời bên dưới.
             Log($"[Sequence] Clamping down to {clampPos:F2} mm (Speed {clampSpeed:F1} mm/s, monitoring Bongshin loadcell force)...");
             bool clampOk = await Motion.ClampDownAsync(clampPos, clampSpeed, ct);
             if (!clampOk)
@@ -405,6 +409,27 @@ namespace BeevisionSolution.Controller
             // STEP 4: Force Dwell
             SetState(SequenceState.TriggeringVision);
             await Task.Delay(dwellTime, ct);
+            */
+            #endregion
+
+            #region Luồng tạm thời (Chạy theo điểm teach - Dừng lại chụp ảnh luôn)
+            // LUỒNG TẠM THỜI: Trục di chuyển trực tiếp đến vị trí điểm teach kẹp (clampPos) -> Dừng hẳn -> Chụp ảnh luôn
+            Log($"[Sequence TEMPORARY] Moving directly to teach clamp position {clampPos:F2} mm (Speed {clampSpeed:F1} mm/s, load cell bypassed)...");
+            bool moveOk = Motion.MoveAbsolute(axis, clampPos, clampSpeed);
+            if (!moveOk || !await Motion.WaitMoveDoneAsync(axis, 15000, ct))
+            {
+                Log("[Sequence Error] Failed to reach teach clamp position.");
+                SetState(SequenceState.Error);
+                return false;
+            }
+
+            // STEP 4: Trigger Vision (Dừng tại vị trí kẹp và tiến hành chụp luôn)
+            SetState(SequenceState.TriggeringVision);
+            if (dwellTime > 0)
+            {
+                await Task.Delay(dwellTime, ct); // Dwell ngắn để ổn định rung động cơ khí trước khi chụp
+            }
+            #endregion
 
             // STEP 5: Vision Processing (Đếm số lượng 100 pcs & Kiểm tra ngược mặt)
             SetState(SequenceState.ProcessingVision);

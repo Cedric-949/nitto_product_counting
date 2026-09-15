@@ -2,6 +2,7 @@ using BeevisionSolution.Controller;
 using BeevisionSolution.Jobs;
 using BeevisionSolution.Models;
 using BeevisionSolution.ViewComponents;
+using BeevisionSolution.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,7 @@ namespace BeevisionSolution.Views
     {
         ToolBlockEditorView wCamera = new ToolBlockEditorView();
         ToolBlockEditorView wHeTbl = new ToolBlockEditorView();
+        private bool _isLoadingJob;
 
         public ToolSettingView()
         {
@@ -57,11 +59,7 @@ namespace BeevisionSolution.Views
             cbxJobs.ItemsSource = lstToolJobs;
             if ((null != lstToolJobs) && (lstToolJobs.Count > 0))
             {
-                //cbxJobs.SelectedIndex = 0;
-                Dispatcher.BeginInvoke(new System.Action(async () =>
-                {
-                    await LoadJobForSelectedItem();
-                }), System.Windows.Threading.DispatcherPriority.Loaded);
+                cbxJobs.SelectedIndex = 0;
             }
         }
 
@@ -74,55 +72,73 @@ namespace BeevisionSolution.Views
         }
         private async Task LoadJobForSelectedItem()
         {
-            if (cbxJobs.Items.Count < 1 || cbxJobs.SelectedIndex < 0)
+            if (_isLoadingJob || cbxJobs.Items.Count < 1 || cbxJobs.SelectedIndex < 0)
                 return;
 
             var job = (BaseJob)cbxJobs.SelectedItem;
             if (job == null)
                 return;
 
+            _isLoadingJob = true;
+            cbxJobs.IsEnabled = false;
             Mouse.OverrideCursor = Cursors.Wait;
 
-            if (!job.Initialized)
-                job.Init();
-
-            var img = (Object)null;
-            var camJob = JobController.GetCameraJob(job.CamSettings.CameraId);
-
-            if (null != camJob)
+            try
             {
-                if ((null == camJob.OutputImage) && (null == camJob.LastValidImage))
+                if (!job.Initialized)
+                    job.Init();
+
+                var img = (Object)null;
+                var camJob = JobController.GetCameraJob(job.CamSettings.CameraId);
+
+                if (null != camJob)
                 {
-                    await camJob.RunToolAsync();
-                    img = camJob.OutputImage;
+                    if ((null == camJob.OutputImage) && (null == camJob.LastValidImage))
+                    {
+                        bool captureSucceeded = await camJob.RunToolAsync();
+                        if (!captureSucceeded)
+                        {
+                            Common.Bug("[ToolSettingView] Camera capture failed while loading job: {0}", camJob.Name);
+                        }
+                        img = camJob.OutputImage;
+                    }
+                    else if (null != camJob.LastValidImage)
+                    {
+                        img = camJob.LastValidImage;
+                    }
+                    else
+                    {
+                        img = camJob.OutputImage;
+                    }
                 }
-                else if (null != camJob.LastValidImage)
+
+                await wCamera.SetJobAsync(camJob, null);
+
+                if (!panelLeft.Children.Contains(wCamera))
                 {
-                    img = camJob.LastValidImage;
+                    panelLeft.Children.Clear();
+                    panelLeft.Children.Add(wCamera);
                 }
-                else
+
+                await wHeTbl.SetJobAsync(job, img);
+
+                if (!panelRight.Children.Contains(wHeTbl))
                 {
-                    img = camJob.OutputImage;
+                    panelRight.Children.Clear();
+                    panelRight.Children.Add(wHeTbl);
                 }
             }
-
-            await wCamera.SetJobAsync(camJob, null);
-
-            if (!panelLeft.Children.Contains(wCamera))
+            catch (Exception ex)
             {
-                panelLeft.Children.Clear();
-                panelLeft.Children.Add(wCamera);
+                Common.Bug("[ToolSettingView] Failed to load selected job: {0}", ex.Message);
+                Common.Bug(ex.StackTrace);
             }
-            
-            await wHeTbl.SetJobAsync(job, img);
-
-            if (!panelRight.Children.Contains(wHeTbl))
+            finally
             {
-                panelRight.Children.Clear();
-                panelRight.Children.Add(wHeTbl);
+                Mouse.OverrideCursor = null;
+                cbxJobs.IsEnabled = true;
+                _isLoadingJob = false;
             }
-
-            Mouse.OverrideCursor = null;
         }
 
         private async void cbxJobs_SelectionChanged(object sender, SelectionChangedEventArgs e)

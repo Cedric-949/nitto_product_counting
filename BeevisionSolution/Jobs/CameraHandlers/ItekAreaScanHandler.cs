@@ -26,7 +26,6 @@ namespace BeevisionSolution.Jobs.CameraHandlers
         private int _imageType;
         private int _bayerPattern;
         private int _bitDepth;
-        private bool _boardGrabbing;
 
         public bool IsInitialized { get; private set; }
 
@@ -71,7 +70,6 @@ namespace BeevisionSolution.Jobs.CameraHandlers
                     ConfigureBoard();
                     ConfigureSoftwareTrigger();
                     ReadFrameGeometry();
-                    StartContinuousGrab();
 
                     IsInitialized = true;
                     _job.Available = true;
@@ -114,16 +112,19 @@ namespace BeevisionSolution.Jobs.CameraHandlers
 
                 try
                 {
-                    EnsureContinuousGrab();
+                    CheckCamera(
+                        IKapC.ItkDevExecuteCommand(_device, "AcquisitionStop"),
+                        "Stop camera acquisition before grab");
+                    CheckBoard(IKapBoard.IKapStopGrab(_board), "Stop pending board grab");
+                    CheckBoard(IKapBoard.IKapStartGrab(_board, 1), "Start single-frame grab");
+                    CheckCamera(
+                        IKapC.ItkDevExecuteCommand(_device, "AcquisitionStart"),
+                        "Start camera acquisition");
                     CheckCamera(IKapC.ItkDevExecuteCommand(_device, "TriggerSoftware"), "Send software trigger");
-
-                    int frameIndex = 0;
-                    CheckBoard(
-                        IKapBoard.IKapWaitOneFrameReady(_board, ref frameIndex, Math.Max(1, _job.ItekGrabTimeoutMs)),
-                        "Wait for frame");
+                    CheckBoard(IKapBoard.IKapWaitGrab(_board), "Wait for frame");
 
                     IntPtr framePointer = IntPtr.Zero;
-                    CheckBoard(IKapBoard.IKapGetBufferAddress(_board, frameIndex, ref framePointer), "Get frame buffer");
+                    CheckBoard(IKapBoard.IKapGetBufferAddress(_board, 0, ref framePointer), "Get frame buffer");
                     if (framePointer == IntPtr.Zero)
                     {
                         throw new InvalidOperationException("ITEK returned an empty frame buffer.");
@@ -138,6 +139,16 @@ namespace BeevisionSolution.Jobs.CameraHandlers
                 }
                 finally
                 {
+                    if (_device != null)
+                    {
+                        try { IKapC.ItkDevExecuteCommand(_device, "AcquisitionStop"); } catch { }
+                    }
+
+                    if (_board != IntPtr.Zero)
+                    {
+                        try { IKapBoard.IKapStopGrab(_board); } catch { }
+                    }
+
                     (image as IDisposable)?.Dispose();
                 }
             }
@@ -258,24 +269,6 @@ namespace BeevisionSolution.Jobs.CameraHandlers
             CheckCamera(IKapC.ItkDevFromString(_device, "TriggerMode", "On"), "Enable trigger mode");
             CheckCamera(IKapC.ItkDevFromString(_device, "TriggerSource", "Software"), "Set software trigger source");
             TrySetCameraEnum("TriggerActivation", "RisingEdge", "Set trigger activation");
-        }
-
-        private void StartContinuousGrab()
-        {
-            IKapC.ItkDevExecuteCommand(_device, "AcquisitionStop");
-            CheckBoard(IKapBoard.IKapStartGrab(_board, 0), "Start continuous grab");
-            _boardGrabbing = true;
-            CheckCamera(IKapC.ItkDevExecuteCommand(_device, "AcquisitionStart"), "Start camera acquisition");
-        }
-
-        private void EnsureContinuousGrab()
-        {
-            if (_boardGrabbing)
-            {
-                return;
-            }
-
-            StartContinuousGrab();
         }
 
         private void TrySetCameraEnum(string featureName, string value, string operation)
@@ -689,7 +682,6 @@ namespace BeevisionSolution.Jobs.CameraHandlers
             if (_board != IntPtr.Zero)
             {
                 try { IKapBoard.IKapStopGrab(_board); } catch { }
-                _boardGrabbing = false;
                 try { IKapBoard.IKapClose(_board); } catch { }
                 _board = IntPtr.Zero;
             }
@@ -719,6 +711,22 @@ namespace BeevisionSolution.Jobs.CameraHandlers
         {
             if (status != IKapBoard.IK_RTN_OK)
             {
+                try
+                {
+                    var errorInfo = new IKAPERRORINFO();
+                    IKapBoard.IKapGetLastError(errorInfo, true);
+                    Bug(
+                        "[ITEK] Board error - Operation:{0}, Status:{1}, ErrorCode:0x{2:X8}, BoardType:{3}, BoardIndex:{4}",
+                        operation,
+                        status,
+                        errorInfo.uErrorCode,
+                        errorInfo.uBoardType,
+                        errorInfo.uBoardIndex);
+                }
+                catch (Exception errorException)
+                {
+                    Bug("[ITEK] Board error details unavailable - Operation:{0}, Detail:{1}", operation, errorException.Message);
+                }
                 throw new InvalidOperationException(operation + " failed. ITEK board status: " + status);
             }
         }

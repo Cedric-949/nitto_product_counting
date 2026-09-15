@@ -17,7 +17,7 @@
         </Grid.RowDefinitions>
         <StackPanel x:Name="panelLeft" Grid.Column="0" Grid.Row="1"/>
         <StackPanel x:Name="panelRight" Grid.Column="1" Grid.Row="1"/>
-        <ComboBox x:Name="cbxJobs" SelectedIndex="0" DisplayMemberPath="Name" Width="200" ToolTip="Select Camera Job" HorizontalAlignment="Left" Margin="5" Grid.Row="0" SelectionChanged="cbxJobs_SelectionChanged"/>
+        <ComboBox x:Name="cbxJobs" DisplayMemberPath="Name" Width="200" ToolTip="Select Camera Job" HorizontalAlignment="Left" Margin="5" Grid.Row="0" SelectionChanged="cbxJobs_SelectionChanged"/>
         <Grid Grid.Row="0" Grid.Column="1" x:Name="grOffset" Visibility="Hidden">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />

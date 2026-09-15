@@ -106,28 +106,45 @@ namespace BeevisionSolution.Models
             var tb = ToolBlock as CogToolBlock;
 
             LastValidImage = OutputImage;
-            if (tb.Outputs.Contains(strOutputImageKey))
-                OutputImage = tb.Outputs[strOutputImageKey].Value;
+
+            object toolBlockOutputImage = null;
+            var hasOutputImage = tb.Outputs.Contains(strOutputImageKey);
+            if (hasOutputImage)
+                toolBlockOutputImage = tb.Outputs[strOutputImageKey].Value;
+
+            if (CamType == 0)
+            {
+                if (hasOutputImage)
+                    OutputImage = toolBlockOutputImage;
+            }
+            else
+            {
+                object capturedInputImage = null;
+                if (tb.Inputs.Contains(strInputImageKey))
+                    capturedInputImage = tb.Inputs[strInputImageKey].Value;
+
+                OutputImage = toolBlockOutputImage ?? capturedInputImage;
+            }
 
             Available = true;
 
             if (AllowFireEvent && (null != OnToolBlockRan)) OnToolBlockRan.Invoke(this, OutputImage, null);
             AllowFireEvent = true;
             RunStatus = tb.RunStatus.Result;
+            if (CamType != 0 && OutputImage == null)
+            {
+                RunStatus = CogToolResultConstants.Error;
+                Bug("[CameraJob] Camera output image is null after capture - Job:{0}, CamType:{1}", Name, CamType);
+            }
             busyWait.Set();
         }
 
         public override bool RunTool()
         {
-            if (_handler != null && _handler.IsInitialized)
+            var cameraToolBlock = ToolBlock as CogToolBlock;
+            if (!TryGrabImage(cameraToolBlock))
             {
-                Info("[CameraJob] RunTool - using handler for CamType:{0}, Job:{1}", CamType, Name);
-                var tb = ToolBlock as CogToolBlock;
-                _handler.GrabImage(tb);
-            }
-            else if (CamType != 0)
-            {
-                Bug("[CameraJob] RunTool - handler NOT initialized! CamType:{0}, Job:{1}", CamType, Name);
+                return false;
             }
 
             if (!Available) busyWait.WaitOne(Timeout);
@@ -175,15 +192,10 @@ namespace BeevisionSolution.Models
 
         public override async Task<bool> RunToolAsync()
         {
-            if (_handler != null && _handler.IsInitialized)
+            var cameraToolBlock = ToolBlock as CogToolBlock;
+            if (!TryGrabImage(cameraToolBlock))
             {
-                Info("[CameraJob] RunToolAsync - using handler for CamType:{0}, Job:{1}", CamType, Name);
-                var tb = ToolBlock as CogToolBlock;
-                _handler.GrabImage(tb);
-            }
-            else if (CamType != 0)
-            {
-                Bug("[CameraJob] RunToolAsync - handler NOT initialized! CamType:{0}, Job:{1}", CamType, Name);
+                return false;
             }
 
             if (!Available) busyWait.WaitOne(Timeout);
@@ -228,6 +240,36 @@ namespace BeevisionSolution.Models
                 return Available;
             }
             return false;
+        }
+
+        private bool TryGrabImage(CogToolBlock toolBlock)
+        {
+            if (CamType == 0)
+            {
+                return true;
+            }
+
+            if (_handler == null || !_handler.IsInitialized)
+            {
+                Bug("[CameraJob] Camera capture error - handler NOT initialized! CamType:{0}, Job:{1}", CamType, Name);
+                RunStatus = CogToolResultConstants.Error;
+                return false;
+            }
+
+            try
+            {
+                Info("[CameraJob] Camera capture - CamType:{0}, Job:{1}", CamType, Name);
+                _handler.GrabImage(toolBlock);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                RunStatus = CogToolResultConstants.Error;
+                OutputImage = null;
+                Bug("[CameraJob] Camera capture error, Job:{0}, Message:{1}", Name, ex.Message);
+                Bug(ex.StackTrace);
+                return false;
+            }
         }
 
         public void SetRuntimeConf(double exp, double gain)
